@@ -1,3 +1,37 @@
+
+# Interview Readme
+
+## Setup
+* This code developed using Node.js v24. If installed dependencies seem to be having issues with the node environment, please install `nvm` (see below) and run `nvm use` to switch to the correct Node version.
+* Follow the rest of the instructions in the original README below to install dependencies and run the project.
+
+## Notes
+* Use `yarn playwright test` to run the automated tests. This will be in the place of traditional unit tests run with `yarn test` from the starter repo
+* Use ` yarn playwright test --ui` to run the interactive test runner, which can be useful for stakeholder review
+
+## Testing strategy
+1. Use playwright for automated testing and interactive stakeholder review
+1. Report coverage `with playwright show-report` (after running `yarn playwright`)
+1. UI components are developed with the correct semantic tags and accessibility in mind, so that they can be tested with screen readers and other assistive technologies, as well as being SEO friendly and easy to test from an automation perspective (e.g. @testing-library/react [guidelines](https://testing-library.com/docs/guiding-principles/).
+
+## Feature development procedure
+This section is just to get an idea of how I approached development for this project, in the place of normal Agile/Scrum ceremonies. 
+
+1. Review core product requirements above.
+1. Create user stories for each feature
+1. Create UX designs / wireframes if needed
+1. Create technical requirements for each user story
+1. Create tasks for each technical requirement
+1. Estimate tasks
+1. Implement tasks
+1. Implement test cases for each user story as possible with completed tasks
+1. For each extension or enhancement, repeat the above steps
+
+## Use of AI
+Copilot Agent mode was used heavily to draft stories, test cases, sample data, UX design, and technical requirements. It was also used to help install and configure tooling like Playwright and @testing-library/react, as these can be time consuming to set up from scratch, and I wanted to spend more of my time on the actual implementation.
+
+**=========== ORIGINAL README FROM STARTER REPO BELOW THIS LINE ===========**
+
 # Express React Webpack starter
 A starter Webpack 4 configuration for basic projects with Express and React.
 
