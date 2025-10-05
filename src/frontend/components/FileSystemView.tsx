@@ -424,13 +424,14 @@ export function FileSystemView({
           <button
             onClick={onClose}
             style={{
+              padding: "4px 6px",
               marginLeft: 10,
               fontSize: 15,
               cursor: "pointer",
             }}
             aria-label="Close File System View"
           >
-            ✖
+            ｘ
           </button>
         )}
       </div>

@@ -59,7 +59,7 @@ export function FileSystemViewToolbar({
         onClick={onCreateFileButton}
         style={{ marginBottom: 10, padding: "5px 10px" }}
       >
-        +📃
+        +📄
       </button>
       <button
         title="Create New Directory"

@@ -64,6 +64,7 @@ export function FileTree({
         // normal OS window using react-rnd or similar
         height: 500, // Fixed height instead of maxHeight
         overflow: "hidden", // Let VirtualizedList handle scrolling
+        border: "1px solid #eee",
       }}
       role="tree"
       onClick={handleOutsideClick}

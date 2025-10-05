@@ -15,13 +15,9 @@ export function Breadcrumbs({
   const parts = contextPath.split("/").filter((p) => p.length > 0);
 
   return (
-    <div style={{ marginBottom: 10, border: "1px solid #eee", padding: 5 }}>
-      <span
-        role="button"
-        tabIndex={0}
-        data-path="/"
-        style={{ cursor: "pointer", color: "blue" }}
-      >
+    <div style={{ marginBottom: 10, padding: 5 }}>
+      Current Path:{" "}
+      <span role="button" tabIndex={0} data-path="/">
         /{" "}
       </span>
       {parts.map((part, idx) => {
