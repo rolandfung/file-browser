@@ -1,5 +1,5 @@
 // Main exports for the file generation system
-export * from "./types";
+export * from "../types";
 export * from "./fileGenerator";
 export * from "./fileGenerationTest";
 

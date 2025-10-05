@@ -1,5 +1,77 @@
 <!doctype html>
 <html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Explorer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #333;
+        background-color: #fff;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      #main {
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      button {
+        font-family: inherit;
+        font-size: inherit;
+        cursor: pointer;
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f8f9fa;
+        transition: all 0.2s ease;
+      }
+
+      button:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      input {
+        font-family: inherit;
+        font-size: inherit;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        font-weight: 600;
+        margin-bottom: 0.5em;
+      }
+
+      .file-explorer {
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+        font-size: 13px;
+      }
+    </style>
+  </head>
   <body>
     <div id="main"></div>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>

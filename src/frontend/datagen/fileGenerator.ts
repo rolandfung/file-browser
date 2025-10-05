@@ -3,7 +3,7 @@ import {
   DirectoryStructure,
   FileExtension,
   FILE_ICONS,
-} from "./types";
+} from "../types";
 
 /**
  * Seeded random number generator for consistent results
@@ -194,6 +194,63 @@ const GENERATION_CONFIG = {
       "template",
     ],
   } as const,
+
+  // City names for .city files
+  CITY_NAMES: [
+    "london",
+    "new_york",
+    "boston",
+    "san_francisco",
+    "chicago",
+    "miami",
+    "seattle",
+    "denver",
+    "austin",
+    "portland",
+    "tokyo",
+    "paris",
+    "berlin",
+    "madrid",
+    "rome",
+    "amsterdam",
+    "stockholm",
+    "oslo",
+    "copenhagen",
+    "helsinki",
+    "sydney",
+    "melbourne",
+    "toronto",
+    "vancouver",
+    "montreal",
+    "dublin",
+    "edinburgh",
+    "barcelona",
+    "vienna",
+    "zurich",
+    "prague",
+    "budapest",
+    "warsaw",
+    "moscow",
+    "istanbul",
+    "athens",
+    "lisbon",
+    "brussels",
+    "luxembourg",
+    "geneva",
+    "florence",
+    "venice",
+    "naples",
+    "munich",
+    "hamburg",
+    "cologne",
+    "frankfurt",
+    "stuttgart",
+    "lyon",
+    "marseille",
+    "nice",
+    "bordeaux",
+    "strasbourg",
+  ] as const,
 };
 
 const rootDir: FileNode = {
@@ -268,11 +325,21 @@ export function generate10kFiles() {
     const parentDir = rng.choice(directories);
     const fileTypeGroup = selectWeightedFileType(rng);
     const extension = rng.choice(fileTypeGroup.extensions) as FileExtension;
-    const namePattern = getFileNamePattern(extension);
-    const baseName = rng.choice(
-      GENERATION_CONFIG.FILE_NAME_PATTERNS[namePattern]
-    );
-    const uniqueName = `${baseName}_${fileCount + 1}.${extension}`;
+
+    let uniqueName: string;
+
+    // Special handling for .city files
+    if (extension === "city") {
+      const cityName = rng.choice(GENERATION_CONFIG.CITY_NAMES);
+      uniqueName = `${cityName}.${extension}`;
+    } else {
+      const namePattern = getFileNamePattern(extension);
+      const baseName = rng.choice(
+        GENERATION_CONFIG.FILE_NAME_PATTERNS[namePattern]
+      );
+      uniqueName = `${baseName}_${fileCount + 1}.${extension}`;
+    }
+
     const filePath =
       parentDir.path === "/"
         ? `/${uniqueName}`

@@ -1,45 +1,55 @@
-import * as React from 'react';
-import { createRoot } from 'react-dom/client';
+import * as React from "react";
+import { FileSystem } from "./FileSystem";
+import { createRoot } from "react-dom/client";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { DndProvider } from "react-dnd";
 
-interface AppProps {
-    name: string;
-}
+import { FileNode } from "./types";
+import { generate10kFiles } from "./datagen/fileSystemHelpers";
+import { MultiFileSystemView } from "./components/MultiFileSystemView";
+
+interface AppProps {}
 
 interface AppState {
-    time: string;
+  fsNodes: FileNode[];
 }
 
 export class App extends React.Component<AppProps, AppState> {
+  constructor(props: AppProps) {
+    super(props);
+    // const { directories, files } = generateEmptyFileSystem();
+    this.state = { fsNodes: [] };
+  }
 
-    constructor(props: AppProps) {
-        super(props);
-        this.state = {
-            time: null
-        }
-    }
-    
-    componentDidMount() {
-        this.getTime();
-        setInterval(this.getTime, 2000);
-    }
+  handleGenerateFiles = () => {
+    const tenKNodes = generate10kFiles();
+    console.log(tenKNodes);
+    this.setState({ fsNodes: [...tenKNodes.files, ...tenKNodes.directories] });
+  };
 
-    render() {
-        const {name} = this.props;
-        const {time} = this.state;
-        return <><h1>{name}</h1><div>{time}</div></>;
-    }
-
-    private getTime = async () => {
-        const response = await fetch('/api/time', { method: 'GET' });
-        if (response.ok) {
-            this.setState({time: await response.text()});
-        }
-    }
-
+  render() {
+    const { fsNodes } = this.state;
+    return (
+      <DndProvider backend={HTML5Backend}>
+        <h2>File Browser Demo</h2>
+        <button
+          onClick={this.handleGenerateFiles}
+          style={{
+            padding: "10px 20px",
+            marginBottom: "20px",
+            fontSize: "16px",
+          }}
+        >
+          Generate 10k Files/Directories
+        </button>
+        <MultiFileSystemView fileSystem={new FileSystem(fsNodes)} />
+      </DndProvider>
+    );
+  }
 }
 
 export function start() {
-    const rootElem = document.getElementById('main');
-    const root = createRoot(rootElem);
-    root.render(<App name="Hello World" />);
+  const rootElem = document.getElementById("main");
+  const root = createRoot(rootElem);
+  root.render(<App />);
 }
