@@ -19,6 +19,7 @@ interface FileSystemViewToolbarProps {
   onCreateDirectoryButton: () => void;
   onDeleteSelectedButton: () => void;
   onMoveSelectedButton: () => void;
+  onDownloadCityButton: () => void;
   selectedFilePaths: Set<string>;
   disableCreate?: boolean;
   disableNav?: boolean;
@@ -33,6 +34,7 @@ export function FileSystemViewToolbar({
   onExpandAllButton,
   onCollapseAllButton,
   onCreateFileButton,
+  onDownloadCityButton,
   onCreateDirectoryButton,
   onDeleteSelectedButton,
   onMoveSelectedButton,
@@ -76,17 +78,21 @@ export function FileSystemViewToolbar({
       >
         🗑️
       </button>
-      <button
+      {/**
+       // TODO: implement move with directory selector (see task_planning.md)
+       */}
+      {/* <button
         title="Move Selected"
         disabled={selectedFilePaths.size === 0}
         onClick={onMoveSelectedButton}
         style={{ marginBottom: 10, padding: "5px 10px" }}
       >
         ➡️
-      </button>
+      </button> */}
       <button
         title="Download City Weather File"
         disabled={disableDownloadCity}
+        onClick={onDownloadCityButton}
         style={{ marginBottom: 10, padding: "5px 10px" }}
       >
         🌤️

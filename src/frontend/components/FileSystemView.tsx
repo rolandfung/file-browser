@@ -120,15 +120,18 @@ export function FileSystemView({
   const [state, setState] = React.useState<{
     selectedFilePaths: Set<string>;
     expandedDirs: Set<string>;
+    lastSelectedPath?: string;
   }>({
     selectedFilePaths: new Set<string>(),
     expandedDirs: new Set<string>(),
+    lastSelectedPath: undefined,
   });
 
   const unselectAll = () => {
     setState((prevState) => ({
       selectedFilePaths: new Set<string>(),
       expandedDirs: prevState.expandedDirs,
+      lastSelectedPath: undefined,
     }));
   };
 
@@ -136,6 +139,7 @@ export function FileSystemView({
     setState((prevState) => ({
       selectedFilePaths: prevState.selectedFilePaths,
       expandedDirs: new Set<string>(),
+      lastSelectedPath: prevState.lastSelectedPath,
     }));
   };
 
@@ -146,6 +150,7 @@ export function FileSystemView({
       ({
         selectedFilePaths: prevSelectedFilePaths,
         expandedDirs: prevExpandedDirs,
+        lastSelectedPath: prevLastSelectedPath,
       }) => {
         const newExpandedDirs = new Set(prevExpandedDirs);
         const newSelectedFilePaths = new Set(prevSelectedFilePaths);
@@ -165,6 +170,7 @@ export function FileSystemView({
         return {
           selectedFilePaths: newSelectedFilePaths,
           expandedDirs: newExpandedDirs,
+          lastSelectedPath: prevLastSelectedPath,
         };
       }
     );
@@ -176,13 +182,38 @@ export function FileSystemView({
       ({
         selectedFilePaths: prevSelectedFilePaths,
         expandedDirs: prevExpandedDirs,
+        lastSelectedPath: prevLastSelectedPath,
       }) => {
         const path = (event.target as HTMLElement).dataset.path;
         const newSelectedFilePaths = new Set(prevSelectedFilePaths);
 
-        // user is simultaneously holding a key for multi-select
-        const multi = event.ctrlKey || event.metaKey;
-        if (multi) {
+        // Range selection with Shift+click
+        const isRangeSelect = event.shiftKey && prevLastSelectedPath;
+        // Multi-select with Ctrl/Cmd+click
+        const isMultiSelect = event.ctrlKey || event.metaKey;
+
+        if (isRangeSelect) {
+          // Get all items in current view (flattened)
+          const allItems = isSearchResultsMode
+            ? fileSystem.searchNodesInDir(searchValue, contextPath)
+            : getAllVisibleItems(fileSystem, contextPath, prevExpandedDirs);
+
+          // Find indices of start and end items
+          const startIndex = allItems.findIndex(
+            (item) => item.path === prevLastSelectedPath
+          );
+          const endIndex = allItems.findIndex((item) => item.path === path);
+
+          if (startIndex !== -1 && endIndex !== -1) {
+            // Select range between start and end (inclusive)
+            const rangeStart = Math.min(startIndex, endIndex);
+            const rangeEnd = Math.max(startIndex, endIndex);
+
+            for (let i = rangeStart; i <= rangeEnd; i++) {
+              newSelectedFilePaths.add(allItems[i].path);
+            }
+          }
+        } else if (isMultiSelect) {
           if (newSelectedFilePaths.has(path)) {
             // unselecting
             newSelectedFilePaths.delete(path);
@@ -192,11 +223,14 @@ export function FileSystemView({
           }
         } else {
           // single select
-          if (newSelectedFilePaths.has(path)) {
-            // unselecting
+          if (
+            newSelectedFilePaths.has(path) &&
+            newSelectedFilePaths.size === 1
+          ) {
+            // unselecting when it's the only selected item
             newSelectedFilePaths.clear();
           } else {
-            // selecting
+            // selecting (clear others first)
             newSelectedFilePaths.clear();
             newSelectedFilePaths.add(path);
           }
@@ -205,6 +239,7 @@ export function FileSystemView({
         return {
           selectedFilePaths: newSelectedFilePaths,
           expandedDirs: prevExpandedDirs,
+          lastSelectedPath: newSelectedFilePaths.size > 0 ? path : undefined,
         };
       }
     );
@@ -217,6 +252,7 @@ export function FileSystemView({
     setState((prevState) => ({
       selectedFilePaths: prevState.selectedFilePaths,
       expandedDirs: new Set(allDirs),
+      lastSelectedPath: prevState.lastSelectedPath,
     }));
   };
 
@@ -248,6 +284,7 @@ export function FileSystemView({
     setState((prevState) => ({
       selectedFilePaths: new Set<string>(),
       expandedDirs: prevState.expandedDirs,
+      lastSelectedPath: undefined,
     }));
   };
 
@@ -274,10 +311,73 @@ export function FileSystemView({
     unselectAll();
   };
 
+  /**
+   * City download weather handler
+   */
+  const handleDownloadCity = () => {
+    if (state.selectedFilePaths.size !== 1) return;
+    const selectedPath = [...state.selectedFilePaths][0];
+    const node = fileSystem.getNode(selectedPath);
+    if (!node || !node.name.endsWith(".city")) return;
+
+    // extract city and country from filename, give the format new_york__us.city
+    const [city, country] = node.name.replace(".city", "").split("__");
+    // download json from https://api.openweathermap.org/data/2.5/weather?q={city name},{country code}&appid={API key}
+    const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city},${country}&appid=${process.env.OPEN_WEATHER_API_KEY}`;
+    fetch(apiUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const weatherData = JSON.stringify(data, null, 2);
+        const blob = new Blob([weatherData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        // Create a temporary link to trigger the download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${city}__${country}_weather.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch weather data:", error);
+        alert(
+          "Failed to fetch weather data. Please check the city and country code."
+        );
+      });
+  };
+
+  // Helper function to get all visible items in current view (for range selection)
+  const getAllVisibleItems = (
+    fs: FileSystem,
+    path: string,
+    expanded: Set<string>
+  ): FileNode[] => {
+    const flattenNodes = (nodes: FileNode[]): FileNode[] => {
+      const result: FileNode[] = [];
+      for (const node of nodes) {
+        result.push(node);
+        if (node.type === "directory" && expanded.has(node.path)) {
+          const children = fs.getChildNodes(node.path);
+          result.push(...flattenNodes(children));
+        }
+      }
+      return result;
+    };
+    return flattenNodes(fs.getChildNodes(path));
+  };
+
   const contextPath = history[history.length - 1];
   const canNavBack = history.length > 1;
   const canNavUp = contextPath !== "/" && contextPath !== "";
   const isSearchMode = searchValue.trim().length > 0;
+  const isSearchResultsMode = searchValue.trim().length > 0;
   const oneCitySelected =
     state.selectedFilePaths.size === 1 &&
     [...state.selectedFilePaths][0].endsWith(".city");
@@ -286,7 +386,11 @@ export function FileSystemView({
   React.useEffect(() => {
     setHistory([contextPathProp]);
     setSearchValue("");
-    setState({ selectedFilePaths: new Set<string>(), expandedDirs: new Set() });
+    setState({
+      selectedFilePaths: new Set<string>(),
+      expandedDirs: new Set(),
+      lastSelectedPath: undefined,
+    });
     setActionDialogState({
       type: "file",
       actionType: "create",
@@ -346,6 +450,7 @@ export function FileSystemView({
           disableExpansion={isSearchMode}
           disableDownloadCity={!oneCitySelected}
           selectedFilePaths={state.selectedFilePaths}
+          onDownloadCityButton={handleDownloadCity}
           onCreateFileButton={handleCreateFileDiagOpen}
           onCreateDirectoryButton={handleCreateDirDiagOpen}
           onDeleteSelectedButton={handleDeleleteDiagOpen}

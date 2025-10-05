@@ -20,6 +20,8 @@ export function ActionDialog({
   selection,
 }: ActionDialogProps) {
   const [name, setName] = React.useState("");
+  const nameIsValid =
+    createType === "file" ? fileNameValid(name) : dirNameValid(name);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,8 +78,16 @@ export function ActionDialog({
             />
           </label>
         )}
+        {name && !nameIsValid && (
+          <div style={{ color: "red" }}>
+            Invalid {createType} name. Cannot be empty or contain slashes.
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button type="submit">
+          <button
+            type="submit"
+            disabled={actionType === "create" && !nameIsValid}
+          >
             {actionType === "create" ? "Create" : "OK"}
           </button>
           <button type="button" onClick={onCancel}>
@@ -87,4 +97,16 @@ export function ActionDialog({
       </form>
     </DialogBase>
   );
+}
+
+function fileNameValid(name: string): boolean {
+  // Basic validation: non-empty, no slashes or backslashes
+  if (!name || /[\/\\]/.test(name)) return false;
+  return true;
+}
+
+function dirNameValid(name: string): boolean {
+  // Basic validation: non-empty, no slashes or backslashes
+  if (!name || /[\/\\]/.test(name)) return false;
+  return true;
 }

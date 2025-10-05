@@ -18,7 +18,7 @@ export function SelectionInfo({
     const node = fileSystem.getNode(path);
     return (
       <div style={{ marginTop: 10 }}>
-        1 item selected: {path} ({node?.type})
+        1 item selected: {path} ({node?.type}), size: {node?.size || 0} bytes
       </div>
     );
   } else {

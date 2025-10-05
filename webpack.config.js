@@ -2,6 +2,8 @@ const webpack = require('webpack');
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const dotenv = require('dotenv')
+
 
 const PROJECTS = (process.env.PROJECTS || '').split(',');
 const IS_WATCH = !!process.env.WATCH;
@@ -70,7 +72,12 @@ const frontendBuild = (name, entryFile, outputFile) => ({
         "react": "React",
         "react-dom": "ReactDOM"
     },
-    plugins: [htmlPlugin]
+    plugins: [
+        htmlPlugin,
+        new webpack.DefinePlugin({
+             'process.env': JSON.stringify(dotenv.config().parsed)
+        }),
+    ]
 });
 
 const backendBuild = (name, entryFile, outputFile = 'server.js') => {

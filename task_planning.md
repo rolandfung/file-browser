@@ -18,7 +18,7 @@
 1. ✅ Files have the correct icon: Every known file extension will have an associated icon.
 1. ✅ Drill down / roll up view: Make the selected directory the root in the current view and going back
 1. ✅ Multiple views: Users may create additional “views” of the same file system (in the same browser window). Users may independently browse in each view. Users may use drag and drop between views.
-1. Download weather for a city specified in the file name: The file is going to be the name of the city that we want to know the weather for (with “.city” extension). For example “london.city” should initiate a download of the weather json file for that city. You can use the api https://openweathermap.org/current.
+1. ✅ Download weather for a city specified in the file name: The file is going to be the name of the city that we want to know the weather for (with “.city” extension). For example “london.city” should initiate a download of the weather json file for that city. You can use the api https://openweathermap.org/current.
 1. Responsive design: Your frontend works just as well on small-screen formats (i.e. mobile) as it does on a full-sized screen (i.e laptop browser).
 1. ✅ Multiselect: Users may select multiple files / directories (i.e shift-select). Extend existing functions (e.g remove) to support multi-select.
 1. ✅ File/directory info: Selecting a file/directory displays useful information about the selected item.
@@ -31,6 +31,8 @@
 1. ✅ Navigation history (navigate back)
 1. ✅ Move files with drag-and-drop into a breadcrumb
 1. ✅ Show move progress (generator function)
+1. Undo a move operation (generator function)
+1. Undo a deletion (would need to add a trash can to FileSystem)
 1. Resolve move conflicts (skip/replace/cancel) using a generator function
 1. Move files with toolbar button -> utilize a directory picker/navigator in a dialog so user can move across many levels quickly
 1. Column info view
