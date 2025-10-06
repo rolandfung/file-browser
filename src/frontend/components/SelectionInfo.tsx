@@ -22,13 +22,13 @@ export function SelectionInfo({
       </div>
     );
   } else {
-    const nodeList = fileSystem.getNodeList(Array.from(selectedFilePaths));
+    const nodeList = fileSystem.getNodes(Array.from(selectedFilePaths));
     const totalSize = nodeList.reduce(
       (acc, node) => acc + (node?.size || 0),
       0
     );
     return (
-      <div style={{ marginTop: 10 }}>
+      <div aria-label="Selection Info" style={{ marginTop: 10 }}>
         {selectedFilePaths.size} items selected, total size: {totalSize} bytes
       </div>
     );

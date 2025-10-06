@@ -29,7 +29,7 @@ export function Search({
         display: "block",
         marginBottom: 10,
         padding: "5px",
-        width: "auto",
+        width: "30ch",
       }}
     />
   );

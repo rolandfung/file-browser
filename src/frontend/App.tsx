@@ -5,7 +5,10 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
 
 import { FileNode } from "./types";
-import { generate10kFiles } from "./datagen/fileSystemHelpers";
+import {
+  generate10kFiles,
+  generateEmptyFileSystem,
+} from "./datagen/fileSystemHelpers";
 import { MultiFileSystemView } from "./components/MultiFileSystemView";
 
 interface AppProps {}
@@ -17,13 +20,13 @@ interface AppState {
 export class App extends React.Component<AppProps, AppState> {
   constructor(props: AppProps) {
     super(props);
-    // const { directories, files } = generateEmptyFileSystem();
-    this.state = { fsNodes: [] };
+    const { directories, files } = generateEmptyFileSystem();
+    this.state = { fsNodes: [...files, ...directories] };
   }
 
   handleGenerateFiles = () => {
     const tenKNodes = generate10kFiles();
-    console.log(tenKNodes);
+    console.debug(tenKNodes);
     this.setState({ fsNodes: [...tenKNodes.files, ...tenKNodes.directories] });
   };
 

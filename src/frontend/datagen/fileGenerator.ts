@@ -565,7 +565,7 @@ export function generateEmptyFileSystem() {
   return {
     files: [] as FileNode[],
     directories: [rootDir],
-    totalItems: 0,
-    structure: {} as DirectoryStructure,
+    totalItems: 1,
+    structure: { "/": rootDir } as DirectoryStructure,
   };
 }

@@ -14,8 +14,8 @@ interface FileItemProps {
   level?: number;
   selected: boolean;
   expanded?: boolean;
-  onNameClick?: (event: React.MouseEvent) => void;
-  onExpandToggle?: (event: React.MouseEvent) => void;
+  onNameClick?: (event: React.MouseEvent, node: FileNode) => void;
+  onExpandToggle?: (node: FileNode) => void;
   onFileDrop?: (droppedPaths: string[], targetPath: string) => void;
 }
 
@@ -65,59 +65,52 @@ export function FileItem({
   const expandIcon = isDirectory ? (expanded ? "▼" : "▶") : null;
 
   return (
-    <div
-      ref={drop}
-      style={{
-        opacity,
-        backgroundColor:
-          isOver && canDrop ? "#e3f2fd" : selected ? "#ddd" : "transparent",
-        border: isOver && canDrop ? "2px dashed #2196f3" : "none",
-        padding: isOver && canDrop ? "2px" : "4px",
-      }}
-      role="tree-item"
-      data-level={level}
-      className={`file-item ${selected ? "selected" : ""}`}
-    >
-      <span
+    <div ref={drop}>
+      <div
         ref={dragRef}
-        style={{
-          cursor: "default",
+        style={(() => {
+          const backgroundColor =
+            isOver && canDrop ? "#e3f2fd" : selected ? "#ddd" : "transparent";
+          return {
+            opacity,
+            backgroundColor,
+            border: isOver && canDrop ? "2px dashed #2196f3" : "none",
+            padding: isOver && canDrop ? "2px" : "4px",
+          };
+        })()}
+        role="listitem"
+        aria-label={node.name}
+        className={`file-item ${selected ? "selected" : ""}`}
+        data-level={level}
+        data-type={node.type}
+        data-name={node.name}
+        data-selected={selected}
+        data-expanded={expanded}
+        aria-expanded={expanded}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          if (onNameClick) {
+            onNameClick(e, node);
+          }
         }}
       >
         {icon}
-        <span
-          role="button"
-          tabIndex={0}
-          data-path={node.path}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onNameClick) onNameClick(e);
-          }}
-          style={{ marginLeft: 5, marginRight: 5 }}
-        >
-          {node.name}
-        </span>
-      </span>
-      {expandIcon && (
-        <span
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onExpandToggle) onExpandToggle(e);
-          }}
-          role="button"
-          tabIndex={0}
-          data-path={node.path}
-          data-name={node.name}
-          data-type={node.type}
-          data-size={node.size}
-          data-selected={selected}
-          data-expanded={expanded}
-          aria-expanded={expanded}
-          className="expand-icon"
-        >
-          {expandIcon}
-        </span>
-      )}
+        <span style={{ marginLeft: 5, marginRight: 5 }}>{node.name}</span>
+        {expandIcon && (
+          <span
+            aria-label={"Expand/Collapse " + node.name}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onExpandToggle) onExpandToggle(node);
+            }}
+            role="button"
+            tabIndex={0}
+            className="expand-icon"
+          >
+            {expandIcon}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

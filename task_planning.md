@@ -25,49 +25,89 @@
 
 ### Personal extensions
 
+Extra features I would like to implement if time permits:
+
+1. ✅ Playwright automation testing
 1. ✅ List virtualization: Implement list virtualization techniques to ensure smooth scrolling and interaction of 10k items
 1. ✅ Breadcrumbs
 1. ✅ Expand/Collapse all
 1. ✅ Navigation history (navigate back)
 1. ✅ Move files with drag-and-drop into a breadcrumb
 1. ✅ Show move progress (generator function)
-1. Undo a move operation (generator function)
-1. Undo a deletion (would need to add a trash can to FileSystem)
-1. Resolve move conflicts (skip/replace/cancel) using a generator function
-1. Move files with toolbar button -> utilize a directory picker/navigator in a dialog so user can move across many levels quickly
-1. Column info view
-1. Column sorting
+1. ✅ Resolve move conflicts (skip/replace/cancel) using a generator function
+1. ✅ Undo a move, delete, or add operation with ctrl-z
+1. ✅ Type/name sorting
+1. Move selected files with toolbar button which opens dialog with a directory navigator so user can move files across many levels quickly
+1. Put file generation function into a web worker to avoid blocking the main thread, and have it cache the generated structure in local storage for faster subsequent generations.
+1. Test coverage for file generation
+1. Dark mode
 
 ## User Stories
 
-Use these stories to build Playwright test automation.
+Based on implemented Playwright e2e test scenarios:
 
-| Priority | Story ID | Given                                                          | When                                                                       | Then                                                                                             |
-| -------- | -------- | -------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| P1       | US-01    | I am viewing the file explorer interface                       | I click on a file or directory                                             | The file or directory becomes selected (highlighted) for future operations                       |
-| P1       | US-02    | I have selected a directory in the file explorer               | I click the "Create New File" button and enter a valid filename            | A new file is created inside the selected directory with the specified name                      |
-| P1       | US-03    | I have selected a directory in the file explorer               | I click the "Create New Directory" button and enter a valid directory name | A new directory is created inside the selected directory with the specified name                 |
-| P1       | US-04    | I am viewing a collapsed directory in the file explorer        | I click on the directory's "Expand" button                                 | The directory expands to show all files and subdirectories contained within it                   |
-| P1       | US-05    | I am viewing an expanded directory in the file explorer        | I click on the directory's "Collapse" button                               | The directory collapses to hide its contents                                                     |
-| P1       | US-06    | I have selected a file in the file explorer                    | I click the "Remove" button and confirm the action                         | The selected file is permanently deleted from the file system                                    |
-| P1       | US-07    | I have selected a directory in the file explorer               | I click the "Remove" button and confirm the action                         | The selected directory and all its contents are permanently deleted from the file system         |
-| P1       | US-08    | I want to test the application with a large dataset            | I click the "Example" button                                               | The system creates 10,000 files and directories with nested structure for demonstration purposes |
-| P1       | US-22    | I attempt to create a file with an invalid name                | I submit the file creation form with empty or illegal characters           | The system displays an error message and prevents file creation                                  |
-| P1       | US-23    | I have not selected any directory                              | I click "Create New File" or "Create New Directory"                        | The system prompts me to select a parent directory first                                         |
-| P1       | US-24    | I have not selected any file or directory                      | I click "Remove"                                                           | The system displays a message indicating no item is selected for removal                         |
-| P2       | US-09    | I have selected a file or directory and I want to move it      | I drag the selected item and drop it onto a target directory               | The file or directory is moved into the target directory                                         |
-| P2       | US-10    | I want to find files with a specific name                      | I enter a filename in the search box and click "Find"                      | The system displays all files and directories with exactly that name                             |
-| P2       | US-11    | I have selected a directory and want to search within it       | I check "Restrict to subtree" and perform a search                         | The search results are limited to files within the selected directory and its subdirectories     |
-| P2       | US-12    | I am viewing files with different extensions                   | I look at the file list                                                    | Each file displays the appropriate icon based on its file extension                              |
-| P2       | US-13    | I have selected a directory and want to focus on it            | I double click a directory                                                 | The selected directory becomes the new root view, hiding parent directories                      |
-| P2       | US-14    | I am in a drilled-down view and want to go back                | I click "Roll up" or navigate up                                           | The view returns to show the parent directory structure                                          |
-| P2       | US-15    | I want to work with multiple file explorer views               | I click "Create New View"                                                  | A new independent file explorer view opens in the same browser window                            |
-| P2       | US-16    | I have multiple views open and want to move files between them | I drag a file from one view and drop it into another view                  | The file is moved to the target location in the destination view                                 |
-| P2       | US-17    | I have a file with a ".city" extension (e.g., "london.city")   | I double-click or select "Download Weather" on the city file               | The system downloads current weather data for that city as a JSON file using OpenWeatherMap API  |
-| P2       | US-18    | I am using the application on a mobile device                  | I access the file explorer on my phone or tablet                           | The interface adapts to the smaller screen size while maintaining full functionality             |
-| P2       | US-19    | I want to select multiple files at once                        | I hold Shift and click on multiple files or directories                    | Multiple items become selected simultaneously                                                    |
-| P2       | US-20    | I have multiple files selected                                 | I click "Remove" with multiple items selected                              | All selected files and directories are deleted after confirmation                                |
-| P2       | US-21    | I have selected a file or directory                            | I view the selection                                                       | Detailed information about the selected item is displayed (size, date modified, type, etc.)      |
+| Priority                         | Story ID | Test File                        | Given                                                     | When                                                                    | Then                                                                                   |
+| -------------------------------- | -------- | -------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Navigation & Breadcrumbs**     |
+| P1                               | US-01    | breadcrumbNavAndDrag.spec.ts     | I am viewing nested directories                           | I navigate through Libraries_1_0 → Images_2_2 → Assets_3_3              | Breadcrumbs show the full navigation path: / → Libraries_1_0 → Images_2_2 → Assets_3_3 |
+| P1                               | US-02    | breadcrumbNavAndDrag.spec.ts     | I am in a nested directory with files                     | I drag a file onto a breadcrumb directory                               | The file is moved to that directory level and no longer visible at current level       |
+| P1                               | US-03    | navigation.spec.ts               | I have navigated into nested directories                  | I click the "Navigate Up" button                                        | I move up one directory level in the hierarchy                                         |
+| P1                               | US-04    | navigation.spec.ts               | I have navigated through multiple directories             | I click the back button (⬅️)                                            | I return to the previously visited directory                                           |
+| **File & Directory Management**  |
+| P1                               | US-05    | createDeleteDir.spec.ts          | I want to create a new directory                          | I click "Create New Directory", enter "Playwright", and click Create    | A new directory named "Playwright" is created and visible                              |
+| P1                               | US-06    | createDeleteDir.spec.ts          | I have a directory I want to remove                       | I select the directory, click delete (🗑️), and confirm                  | The directory is deleted and no longer visible                                         |
+| P1                               | US-07    | createDeleteDir.spec.ts          | I have created directories "ParentDir" and "ChildDir"     | I drag "ChildDir" onto "ParentDir"                                      | "ChildDir" moves inside "ParentDir" and is visible when ParentDir is expanded          |
+| P1                               | US-08    | createDeleteFile.spec.ts         | I want to create a new file                               | I click "Create New File", enter "playwright.pdf", and click Create     | A new file named "playwright.pdf" is created and visible                               |
+| P1                               | US-09    | createDeleteFile.spec.ts         | I have a file I want to remove                            | I select the file, click delete (🗑️), and confirm                       | The file is deleted and no longer visible                                              |
+| P1                               | US-10    | createDeleteFile.spec.ts         | I want to organize files into directories                 | I drag a file onto a directory                                          | The file moves into the directory and is visible when the directory is expanded        |
+| **Expand/Collapse Operations**   |
+| P1                               | US-11    | expandCollapseAll.spec.ts        | I have directories with nested content                    | I click the expand all button (📂)                                      | All directories expand showing nested content like Images_2_2, Assets_3_3, Media_4_29  |
+| P1                               | US-12    | expandCollapseAll.spec.ts        | I have expanded directories                               | I click the collapse all button (📁)                                    | All directories collapse hiding their nested content                                   |
+| **Multi-View Support**           |
+| P2                               | US-13    | multiViews.spec.ts               | I want multiple file system views                         | I click "Add View"                                                      | A second independent file system view is created                                       |
+| P2                               | US-14    | multiViews.spec.ts               | I have multiple views open and delete a file in one view  | I delete a file in the second view                                      | The file disappears from all views (changes are synchronized)                          |
+| P2                               | US-15    | multiViews.spec.ts               | I have multiple views open                                | I click "Close File System View" on one view                            | That view is closed, leaving only one view remaining                                   |
+| P2                               | US-16    | dragBetweenViews.spec.ts         | I have multiple views and want to move files between them | I select files in one view and drag them to a directory in another view | The files move to the destination directory in the target view                         |
+| **Selection & File Information** |
+| P2                               | US-17    | fileInfo.spec.ts                 | I want to see selection details                           | I click on a single file                                                | The interface shows "1 item selected: /filename"                                       |
+| P2                               | US-18    | fileInfo.spec.ts                 | I want to select multiple files                           | I click one file, then shift-click on another file                      | The interface shows "3 items selected" (including files in between)                    |
+| **Search & Weather Integration** |
+| P2                               | US-19    | searchAndWeatherDownload.spec.ts | I want to find specific files                             | I type "city" in the search box                                         | All displayed files contain "city" in their name                                       |
+| P2                               | US-20    | searchAndWeatherDownload.spec.ts | I have selected a .city file (e.g. "athens\_\_GR.city")   | I click the weather download button (🌤️)                                | A weather JSON file is downloaded with name "athens\_\_GR_weather.json"                |
+| **Sorting & Organization**       |
+| P2                               | US-21    | sort.spec.ts                     | I am viewing the file list                                | I observe the default sorting                                           | Files are sorted by type (directories first, then files)                               |
+| P2                               | US-22    | sort.spec.ts                     | I want to reverse the sort order                          | I click "Toggle Asc/Desc"                                               | The sort order reverses (files first, then directories)                                |
+| P2                               | US-23    | sort.spec.ts                     | I want to sort by name                                    | I select "Name" from the sort dropdown                                  | Files and directories are sorted alphabetically by name                                |
+| **Undo Operations**              |
+| P2                               | US-24    | undo.spec.ts                     | I have created a directory                                | I press Ctrl+Z (or Cmd+Z)                                               | The directory creation is undone and the directory disappears                          |
+| P2                               | US-25    | undo.spec.ts                     | I have created a file                                     | I press Ctrl+Z (or Cmd+Z)                                               | The file creation is undone and the file disappears                                    |
+| P2                               | US-26    | undo.spec.ts                     | I have deleted a file                                     | I press Ctrl+Z (or Cmd+Z)                                               | The file deletion is undone and the file reappears                                     |
+| P2                               | US-27    | undo.spec.ts                     | I have moved nested directory structures                  | I press Ctrl+Z (or Cmd+Z)                                               | The move operation is undone and files return to their original locations              |
+| **Move Conflict Resolution**     |
+| P2                               | US-28    | moveConflicts.spec.ts            | I am moving files/directories that would create conflicts | I drag a directory to a location where files with same names exist      | A conflict dialog appears allowing me to choose "Replace", "Skip", or "Cancel"         |
+
+### Test Coverage Summary
+
+The e2e tests cover the following key functionality:
+
+- ✅ **Navigation**: Breadcrumb navigation, up/back buttons
+- ✅ **File Operations**: Create, delete, move files and directories
+- ✅ **Drag & Drop**: Between directories, between views, onto breadcrumbs
+- ✅ **Multi-View**: Independent views with synchronized changes
+- ✅ **Selection**: Single and multi-select with shift-click
+- ✅ **Search**: File filtering with real-time results
+- ✅ **Weather Integration**: Download weather data for .city files
+- ✅ **Sorting**: By type and name, with asc/desc toggle
+- ✅ **Undo**: Full undo support for create, delete, and move operations
+- ✅ **Expand/Collapse**: Individual and bulk directory operations
+- ✅ **Move Conflicts**: Conflict resolution with Replace/Skip/Cancel options
+
+### Missing Test Coverage
+
+- Responsive design testing
+- Error handling scenarios
+- Performance testing with large datasets
+- Keyboard navigation and accessibility
 
 ### Technical requirements: data structures
 

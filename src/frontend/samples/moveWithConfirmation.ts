@@ -26,9 +26,9 @@ export async function handleMoveWithConfirmation(
 
   const finalResult = result.value;
   if (finalResult.cancelled) {
-    console.log("Move operation was cancelled");
+    console.debug("Move operation was cancelled");
   } else {
-    console.log(`Successfully moved ${finalResult.moved.length} files`);
+    console.debug(`Successfully moved ${finalResult.moved.length} files`);
   }
 }
 

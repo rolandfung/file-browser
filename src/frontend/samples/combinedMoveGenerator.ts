@@ -48,7 +48,7 @@ export async function handleMoveWithCombinedGenerator(
       if (onProgress) {
         onProgress(progress);
       } else {
-        console.log(
+        console.debug(
           `Moving: ${progress.percentage}% (${progress.current}/${progress.total}) - ${progress.currentFile}`
         );
       }
@@ -62,9 +62,9 @@ export async function handleMoveWithCombinedGenerator(
 
   const finalResult = result.value;
   if (finalResult.cancelled) {
-    console.log("Move operation was cancelled");
+    console.debug("Move operation was cancelled");
   } else {
-    console.log(`Successfully moved ${finalResult.moved.length} files`);
+    console.debug(`Successfully moved ${finalResult.moved.length} files`);
   }
 }
 
@@ -168,7 +168,7 @@ export async function simpleMoveExample(
     ) {
       // Simple console logging for progress
       const progress = yielded as ProgressUpdate;
-      console.log(
+      console.debug(
         `Progress: ${progress.percentage}% - ${progress.currentFile}`
       );
       result = generator.next();

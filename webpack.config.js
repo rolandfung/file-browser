@@ -10,7 +10,10 @@ const IS_WATCH = !!process.env.WATCH;
 
 const resolveConfig = {
     symlinks: false,
-    extensions: ['.js', '.json', '.ts', '.tsx']
+    extensions: ['.js', '.json', '.ts', '.tsx'],
+    fallback: {
+        path: require.resolve('path-browserify')
+    }
 };
 
 const includeDirs = ['src'].map(x => path.resolve(__dirname, x));

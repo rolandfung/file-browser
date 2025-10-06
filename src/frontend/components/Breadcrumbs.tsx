@@ -8,7 +8,7 @@ export interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({
-  contextPath,
+  contextPath = "/",
   onCrumbClick,
   onFileDrop,
 }: BreadcrumbsProps) {
@@ -17,12 +17,14 @@ export function Breadcrumbs({
   return (
     <div style={{ marginBottom: 10, padding: 5 }}>
       Current Path:{" "}
-      <span role="button" tabIndex={0} data-path="/">
-        /{" "}
-      </span>
+      <CrumbItem
+        part={"/"}
+        path={"/"}
+        onClick={onCrumbClick}
+        onFileDrop={onFileDrop}
+      />{" "}
       {parts.map((part, idx) => {
         const path = "/" + parts.slice(0, idx + 1).join("/");
-
         return (
           <span key={path}>
             {idx !== 0 ? <span> / </span> : null}
@@ -57,7 +59,7 @@ export function CrumbItem({ part, path, onClick, onFileDrop }: CrumbItemProps) {
   return (
     <span
       ref={drop}
-      role="button"
+      role="navigation"
       tabIndex={0}
       data-path={path}
       onClick={onClick}

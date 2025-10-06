@@ -1,5 +1,5 @@
 import { FileSystem } from "../FileSystem";
-import { FileNode, ConflictResolution } from "../types";
+import { FileNode } from "../types";
 import * as React from "react";
 import { FileTree } from "./FileTree";
 import { FileSystemViewToolbar } from "./FileSystemViewToolbar";
@@ -7,7 +7,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { Search } from "./Search";
 import { ActionDialog } from "./ActionDialog";
 import { SelectionInfo } from "./SelectionInfo";
-import { MoveDialog } from "./MoveDialog";
+import { useMoveDialogContext } from "./MoveDialog";
 
 interface FileSystemViewProps {
   fileSystem: FileSystem;
@@ -42,45 +42,16 @@ export function FileSystemView({
   /**
    * Move dialog state and handlers
    */
-  const [moveDiagOpen, setMoveDiagOpen] = React.useState(false);
-  const [moveProgress, setMoveProgress] = React.useState<{
-    current: number;
-    total: number;
-  } | null>(null);
-  const handleMoveDialogClose = () => setMoveDiagOpen(false);
-  const handleMoveDialogOpen = () => setMoveDiagOpen(true);
+  const { startMove } = useMoveDialogContext();
+  // const handleMoveDialogOpen = () => startMove([], "/");
   const handleFileMove = async (droppedPaths: string[], targetPath: string) => {
-    // open move dialog
-    setMoveDiagOpen(true);
-    setMoveProgress({ current: 0, total: droppedPaths.length });
-
-    try {
-      // Use the generator-based move operation
-      const moveGenerator = fileSystem.moveFiles(droppedPaths, targetPath);
-
-      let result = moveGenerator.next();
-      while (!result.done) {
-        const value = result.value;
-
-        if ("type" in value && value.type === "conflict") {
-          // For now, skip conflicts - you can implement conflict resolution UI later
-          result = moveGenerator.next("skip" as ConflictResolution);
-        } else if ("type" in value && value.type === "progress") {
-          // Handle progress updates if needed
-          console.log(`Moving: ${value.current}/${value.total}`);
-          setMoveProgress({ current: value.current, total: value.total });
-          result = moveGenerator.next();
-        } else {
-          // It's a MoveResult, continue
-          result = moveGenerator.next();
-        }
-      }
-
-      // Clear selection after successful move
-      unselectAll();
-    } catch (error) {
-      console.error("Failed to move files:", error);
-    }
+    startMove(droppedPaths, targetPath);
+    // clear selection
+    setState((prevState) => ({
+      selectedFilePaths: new Set<string>(),
+      expandedDirs: prevState.expandedDirs,
+      lastSelectedPath: undefined, // for determining beginning of range selection
+    }));
   };
 
   /**
@@ -110,9 +81,29 @@ export function FileSystemView({
   };
 
   /**
-   * Search state and handlers
+   * Search and sort state and handlers
    */
   const [searchValue, setSearchValue] = React.useState<string>("");
+  const [sort, setSortMode] = React.useState<{
+    mode: "name" | "type";
+    asc: boolean;
+  }>({ mode: "type", asc: true });
+  const sortingFunc = (a: FileNode, b: FileNode): number => {
+    // if sortMode is "type", sort by type then name
+    if (sort.mode === "type") {
+      const typeCompare = a.type.localeCompare(b.type);
+      if (typeCompare === 0) {
+        return sort.asc
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      }
+      return sort.asc ? typeCompare : -typeCompare;
+    }
+    // if sortMode is "name", sort by type
+    return sort.asc
+      ? a.name.localeCompare(b.name)
+      : b.name.localeCompare(a.name);
+  };
 
   /**
    * Selection and expansion state and handlers
@@ -144,8 +135,8 @@ export function FileSystemView({
   };
 
   // user clicked on expand/collapse icon of a directory
-  const handleExpandleToggle = (event: React.MouseEvent) => {
-    const path = (event.target as HTMLElement).dataset.path;
+  const handleExpandleToggle = (node: FileNode) => {
+    const path = node.path;
     setState(
       ({
         selectedFilePaths: prevSelectedFilePaths,
@@ -177,14 +168,18 @@ export function FileSystemView({
   };
 
   // user clicked on file/folder name to select/unselect
-  const handleItemSelect = (event: React.MouseEvent) => {
+  const handleItemSelect = (
+    event: React.MouseEvent<HTMLElement>,
+    node: FileNode,
+    sortingFunc: (a: FileNode, b: FileNode) => number
+  ) => {
     setState(
       ({
         selectedFilePaths: prevSelectedFilePaths,
         expandedDirs: prevExpandedDirs,
         lastSelectedPath: prevLastSelectedPath,
       }) => {
-        const path = (event.target as HTMLElement).dataset.path;
+        const path = node.path;
         const newSelectedFilePaths = new Set(prevSelectedFilePaths);
 
         // Range selection with Shift+click
@@ -195,8 +190,13 @@ export function FileSystemView({
         if (isRangeSelect) {
           // Get all items in current view (flattened)
           const allItems = isSearchResultsMode
-            ? fileSystem.searchNodesInDir(searchValue, contextPath)
-            : getAllVisibleItems(fileSystem, contextPath, prevExpandedDirs);
+            ? fileSystem.searchNodesInPath(searchValue, contextPath)
+            : getAllVisibleItems(
+                fileSystem,
+                contextPath,
+                prevExpandedDirs,
+                sortingFunc
+              );
 
           // Find indices of start and end items
           const startIndex = allItems.findIndex(
@@ -268,7 +268,11 @@ export function FileSystemView({
       state.selectedFilePaths.size === 1
         ? [...state.selectedFilePaths][0]
         : contextPath;
-    const path = parentPath + "/" + (partialNode.name as string);
+    // the new node's path is parentPath + "/" + name, unless parentPath is "/", then it's just "/" + name
+    const path =
+      parentPath === "/"
+        ? "/" + (partialNode.name as string)
+        : parentPath + "/" + (partialNode.name as string);
     fileSystem.createFileOrDirectory({ ...partialNode, path, parentPath });
   };
 
@@ -277,8 +281,8 @@ export function FileSystemView({
    */
   const [history, setHistory] = React.useState<string[]>([contextPathProp]);
 
-  const handleDrillDown = (event: React.MouseEvent) => {
-    const newContextPath = (event.target as HTMLElement).dataset.path;
+  const handleDrillDown = (node: FileNode) => {
+    const newContextPath = node.path;
     setHistory((prevHistory) => [...prevHistory, newContextPath]);
     // unselect all
     setState((prevState) => ({
@@ -357,20 +361,21 @@ export function FileSystemView({
   const getAllVisibleItems = (
     fs: FileSystem,
     path: string,
-    expanded: Set<string>
+    expanded: Set<string>,
+    sortingFunc: (a: FileNode, b: FileNode) => number
   ): FileNode[] => {
     const flattenNodes = (nodes: FileNode[]): FileNode[] => {
       const result: FileNode[] = [];
       for (const node of nodes) {
         result.push(node);
         if (node.type === "directory" && expanded.has(node.path)) {
-          const children = fs.getChildNodes(node.path);
+          const children = fs.getChildNodes(node.path).sort(sortingFunc);
           result.push(...flattenNodes(children));
         }
       }
       return result;
     };
-    return flattenNodes(fs.getChildNodes(path));
+    return flattenNodes(fs.getChildNodes(path)).sort(sortingFunc);
   };
 
   const contextPath = history[history.length - 1];
@@ -415,7 +420,7 @@ export function FileSystemView({
       >
         <div style={{ flexGrow: 1 }}>
           <Breadcrumbs
-            onFileDrop={handleFileMove}
+            onFileDrop={startMove}
             contextPath={contextPath}
             onCrumbClick={handleCrumbNav}
           />
@@ -445,7 +450,9 @@ export function FileSystemView({
         }}
       >
         <FileSystemViewToolbar
-          onMoveSelectedButton={handleMoveDialogOpen}
+          sort={sort}
+          setSort={setSortMode}
+          // onMoveSelectedButton={handleMoveDialogOpen} add back when we have a directory navigator
           disableCreate={isSearchMode}
           disableNav={isSearchMode}
           disableExpansion={isSearchMode}
@@ -462,12 +469,13 @@ export function FileSystemView({
           canNavUp={canNavUp}
           canNavBack={canNavBack}
         />
-        <Search
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-        />
       </div>
+      <Search
+        value={searchValue}
+        onChange={(e) => setSearchValue(e.target.value)}
+      />
       <FileTree
+        sortingFunc={sortingFunc}
         searchValue={searchValue}
         expandedDirs={state.expandedDirs}
         selectedFilePaths={state.selectedFilePaths}
@@ -485,11 +493,6 @@ export function FileSystemView({
           fileSystem={fileSystem}
         />
       ) : null}
-      <MoveDialog
-        open={moveDiagOpen}
-        onClose={handleMoveDialogClose}
-        progress={moveProgress}
-      />
       <ActionDialog
         open={actionDialogState.visible}
         actionType={actionDialogState.actionType}

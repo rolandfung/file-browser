@@ -18,13 +18,15 @@ interface FileSystemViewToolbarProps {
   onCreateFileButton: () => void;
   onCreateDirectoryButton: () => void;
   onDeleteSelectedButton: () => void;
-  onMoveSelectedButton: () => void;
+  // onMoveSelectedButton: () => void;
   onDownloadCityButton: () => void;
   selectedFilePaths: Set<string>;
   disableCreate?: boolean;
   disableNav?: boolean;
   disableExpansion?: boolean;
   disableDownloadCity?: boolean;
+  sort: { mode: "name" | "type"; asc: boolean };
+  setSort: (sort: { mode: "name" | "type"; asc: boolean }) => void;
 }
 export function FileSystemViewToolbar({
   onNavigateUpButton,
@@ -37,19 +39,20 @@ export function FileSystemViewToolbar({
   onDownloadCityButton,
   onCreateDirectoryButton,
   onDeleteSelectedButton,
-  onMoveSelectedButton,
+  // onMoveSelectedButton,
   selectedFilePaths = new Set<string>(),
   disableNav = false,
   disableCreate = false,
   disableExpansion = false,
   disableDownloadCity = false,
+  sort = { mode: "name", asc: true },
+  setSort = () => {},
 }: FileSystemViewToolbarProps) {
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "row",
-        alignItems: "flex-start",
         flexWrap: "wrap",
       }}
     >
@@ -57,7 +60,7 @@ export function FileSystemViewToolbar({
         title="Create New File"
         disabled={disableCreate || disableCreate}
         onClick={onCreateFileButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         +📄
       </button>
@@ -65,7 +68,7 @@ export function FileSystemViewToolbar({
         title="Create New Directory"
         disabled={disableCreate || disableCreate}
         onClick={onCreateDirectoryButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         +📁
       </button>
@@ -74,7 +77,7 @@ export function FileSystemViewToolbar({
         title="Delete Selected"
         disabled={selectedFilePaths.size === 0}
         onClick={onDeleteSelectedButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         🗑️
       </button>
@@ -85,7 +88,7 @@ export function FileSystemViewToolbar({
         title="Move Selected"
         disabled={selectedFilePaths.size === 0}
         onClick={onMoveSelectedButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{  padding: "5px 10px" }}
       >
         ➡️
       </button> */}
@@ -93,7 +96,7 @@ export function FileSystemViewToolbar({
         title="Download City Weather File"
         disabled={disableDownloadCity}
         onClick={onDownloadCityButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         🌤️
       </button>
@@ -102,7 +105,7 @@ export function FileSystemViewToolbar({
         title="Navigate Up"
         disabled={disableNav || !canNavUp}
         onClick={onNavigateUpButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         ⬆️
       </button>
@@ -110,7 +113,7 @@ export function FileSystemViewToolbar({
         title="Navigate Back"
         onClick={onNavigateBackButton}
         disabled={disableNav || !canNavBack}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         ⬅️
       </button>
@@ -119,7 +122,7 @@ export function FileSystemViewToolbar({
         title="Expand All"
         disabled={disableExpansion}
         onClick={onExpandAllButton}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         📂
       </button>
@@ -127,10 +130,37 @@ export function FileSystemViewToolbar({
         title="Collapse All"
         onClick={onCollapseAllButton}
         disabled={disableExpansion}
-        style={{ marginBottom: 10, padding: "5px 10px" }}
+        style={{ padding: "5px 10px" }}
       >
         📁
       </button>
+      <SpacerHorizontal px={5} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        Sort by:
+        <select
+          name="Sort By"
+          value={sort.mode}
+          onChange={(e) =>
+            setSort({ ...sort, mode: e.target.value as "name" | "type" })
+          }
+          style={{ marginLeft: 5 }}
+        >
+          <option value="name">Name</option>
+          <option value="type">Type</option>
+        </select>
+        <button
+          title="Toggle Asc/Desc"
+          onClick={() => setSort({ ...sort, asc: !sort.asc })}
+          style={{ marginLeft: 5, padding: "2px 5px" }}
+        >
+          {sort.asc ? "⬆️" : "⬇️"}
+        </button>
+      </div>
     </div>
   );
 }
