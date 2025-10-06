@@ -33,6 +33,9 @@ const AppContent: React.FC = () => {
     []
   );
 
+  const [enableArtificialDelay, setEnableArtificialDelay] =
+    React.useState(false);
+
   const { generateFiles, isGenerating, progress, statusMessage, error } =
     useFileGenerationWorker(handleFilesGenerated);
 
@@ -41,7 +44,7 @@ const AppContent: React.FC = () => {
       <h2>File Browser Demo</h2>
       <div style={{ marginBottom: "20px" }}>
         <button
-          onClick={generateFiles}
+          onClick={() => generateFiles(enableArtificialDelay)}
           disabled={isGenerating}
           style={{
             padding: "10px 20px",
@@ -57,9 +60,29 @@ const AppContent: React.FC = () => {
         >
           {isGenerating ? "Generating..." : "Generate 10k Files/Directories"}
         </button>
+
+        <div style={{ marginBottom: "10px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={enableArtificialDelay}
+              onChange={(e) => setEnableArtificialDelay(e.target.checked)}
+              disabled={isGenerating}
+            />
+            Enable artificial delays (for demo purposes - slows down generation)
+          </label>
+        </div>
+
         <p>
-          Files are generated in a web worker additional artificial delay to
-          simulate heavy computation. Note that UI remains responsive
+          Files are generated in a web worker
+          {enableArtificialDelay
+            ? " with additional artificial delays to"
+            : " to"}
+          {enableArtificialDelay
+            ? " demonstrate non-blocking UI"
+            : " avoid blocking the UI"}
+          . Note that UI remains responsive
+          {enableArtificialDelay ? " even with delays" : ""}
         </p>
 
         {/* Progress indicator */}

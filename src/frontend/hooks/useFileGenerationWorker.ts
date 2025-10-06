@@ -2,7 +2,7 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import { FileNode } from "../types";
 
 interface UseFileGenerationWorkerResult {
-  generateFiles: () => void;
+  generateFiles: (enableDelay?: boolean) => void;
   isGenerating: boolean;
   progress: number;
   statusMessage: string;
@@ -105,19 +105,25 @@ export const useFileGenerationWorker = (
     };
   }, [onFilesGenerated]);
 
-  const generateFiles = useCallback(() => {
-    if (isGenerating || !workerRef.current) {
-      return;
-    }
+  const generateFiles = useCallback(
+    (enableDelay: boolean = false) => {
+      if (isGenerating || !workerRef.current) {
+        return;
+      }
 
-    setIsGenerating(true);
-    setProgress(0);
-    setError(null);
-    setStatusMessage("Initializing...");
+      setIsGenerating(true);
+      setProgress(0);
+      setError(null);
+      setStatusMessage("Initializing...");
 
-    // Send message to worker to start generation
-    workerRef.current.postMessage({ type: "GENERATE_FILES" });
-  }, [isGenerating]);
+      // Send message to worker to start generation
+      workerRef.current.postMessage({
+        type: "GENERATE_FILES",
+        enableArtificialDelay: enableDelay,
+      });
+    },
+    [isGenerating]
+  );
 
   return {
     generateFiles,

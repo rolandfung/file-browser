@@ -278,7 +278,10 @@ type ProgressCallback = (
  * Main function to generate 10k files and directories with realistic distribution
  * Uses seeded random generation for consistent results across runs
  */
-export async function generate10kFiles(onProgress?: ProgressCallback) {
+export async function generate10kFiles(
+  onProgress?: ProgressCallback,
+  enableArtificialDelay: boolean = false
+) {
   const rng = new SeededRandom(GENERATION_CONFIG.SEED);
   const files: FileNode[] = [];
   const directories: FileNode[] = [];
@@ -294,8 +297,10 @@ export async function generate10kFiles(onProgress?: ProgressCallback) {
 
   onProgress?.(5, "Building directory structure...", "root directory");
 
-  // Artificial delay to demonstrate non-blocking UI (remove in production)
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Artificial delay to demonstrate non-blocking UI (only when enabled)
+  if (enableArtificialDelay) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
 
   for (let level = 1; level <= GENERATION_CONFIG.MAX_DEPTH; level++) {
     const parentsAtPreviousLevel = directories.filter(
@@ -343,8 +348,10 @@ export async function generate10kFiles(onProgress?: ProgressCallback) {
           uniqueName
         );
 
-        // Artificial delay to demonstrate non-blocking UI (remove in production)
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Artificial delay to demonstrate non-blocking UI (only when enabled)
+        if (enableArtificialDelay) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
       }
     }
   }
@@ -408,8 +415,10 @@ export async function generate10kFiles(onProgress?: ProgressCallback) {
         uniqueName
       );
 
-      // Artificial delay to demonstrate non-blocking UI (remove in production)
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Artificial delay to demonstrate non-blocking UI (only when enabled)
+      if (enableArtificialDelay) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
     }
   }
 

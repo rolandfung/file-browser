@@ -7,6 +7,7 @@ import { generate10kFiles } from "../datagen/fileSystemHelpers";
 // Define message types for type safety
 interface GenerateFilesMessage {
   type: "GENERATE_FILES";
+  enableArtificialDelay?: boolean;
 }
 
 interface ProgressMessage {
@@ -36,7 +37,7 @@ type WorkerMessage = GenerateFilesMessage;
 
 // Listen for messages from the main thread
 self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
-  const { type } = event.data;
+  const { type, enableArtificialDelay = false } = event.data;
 
   try {
     switch (type) {
@@ -60,7 +61,10 @@ self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
         onProgress(0, "Initializing file generation...");
 
         // Do the actual heavy computation with real progress reporting
-        const result = await generate10kFiles(onProgress);
+        const result = await generate10kFiles(
+          onProgress,
+          enableArtificialDelay
+        );
 
         // Send the completed result
         self.postMessage({

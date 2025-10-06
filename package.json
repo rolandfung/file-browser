@@ -10,7 +10,9 @@
     "build-watch": "PROJECTS=frontend,backend,worker WATCH=true webpack --progress",
     "start": "node --inspect dist/server.js",
     "build-hot-reload": "PROJECTS=frontend,worker webpack-dev-server --mode=development",
-    "clean": "rm -rf node_modules/ dist/"
+    "clean": "rm -rf node_modules/ dist/",
+    "playwright": "playwright test",
+    "playwright:ui": "playwright test --ui"
   },
   "engines": {
     "yarn": "^1.10.1",
