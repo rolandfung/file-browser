@@ -95,7 +95,9 @@ export function FileItem({
         }}
       >
         {icon}
-        <span style={{ marginLeft: 5, marginRight: 5 }}>{node.name}</span>
+        <span title={node.path} style={{ marginLeft: 5, marginRight: 5 }}>
+          {node.name}
+        </span>
         {expandIcon && (
           <span
             aria-label={"Expand/Collapse " + node.name}

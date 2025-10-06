@@ -11,13 +11,15 @@ import {
   MoveResult,
   ProgressUpdate,
 } from "./types";
-// This class separates out the underlying file manipulation logic from the UI logic,
+// FileSystem separates out the underlying file manipulation logic from the UI logic,
 // so that we can easily have multiple views on the same file system. View components
 // can focus on handling navigation, selection, and action logic.
 
 // File system structure and their related operations is more of an OS concern,
 // and this is a very naive implementation for the sake of getting the UI working.
 // A more robust implementation might involve tree structures, indexing for search, etc.
+
+// This is also not a React
 export class FileSystem extends EventTarget {
   nodes: FileNode[];
   // makes O(1) file removal possible by doing a swap-and-pop

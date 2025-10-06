@@ -200,7 +200,7 @@ export function MoveDialog() {
   return (
     <DialogBase open={open} onClose={onClose} title="Moving Files">
       {conflict ? (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <p>
             Conflict moving {conflict.originalFilePath} to {conflict.targetPath}
             :
@@ -209,15 +209,21 @@ export function MoveDialog() {
             A file already exists at {conflict.existingFilePath}. What would you
             like to do?
           </p>
-          <button onClick={() => resolveConflict && resolveConflict("replace")}>
-            Replace
-          </button>
-          <button onClick={() => resolveConflict && resolveConflict("skip")}>
-            Skip
-          </button>
-          <button onClick={() => resolveConflict && resolveConflict("cancel")}>
-            Cancel Move
-          </button>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => resolveConflict && resolveConflict("replace")}
+            >
+              Replace
+            </button>
+            <button onClick={() => resolveConflict && resolveConflict("skip")}>
+              Skip
+            </button>
+            <button
+              onClick={() => resolveConflict && resolveConflict("cancel")}
+            >
+              Cancel Move
+            </button>
+          </div>
         </div>
       ) : moveProgress ? (
         <p>
@@ -226,7 +232,7 @@ export function MoveDialog() {
       ) : (
         <p>Preparing...</p>
       )}
-      <button onClick={onClose}>Close</button>
+      {conflict ? null : <button onClick={onClose}>Close</button>}
     </DialogBase>
   );
 }

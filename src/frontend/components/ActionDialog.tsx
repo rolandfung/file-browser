@@ -68,7 +68,7 @@ export function ActionDialog({
             {selection.length === 1 ? "item" : "items"}?
           </div>
         ) : (
-          <label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {createType === "file" ? "File Name:" : "Directory Name:"}
             <input
               type="text"

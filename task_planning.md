@@ -109,59 +109,11 @@ The e2e tests cover the following key functionality:
 - Performance testing with large datasets
 - Keyboard navigation and accessibility
 
-### Technical requirements: data structures
+### Technical requirements
 
 - FileNode: interface representing a file or directory with properties like id, name, type, path, parentPath, level, size, created, modified, and optional extension.
-- DirectoryStructure: object mapping directory paths to FileNode objects for quick lookup.
-- FileSystem: structure containing arrays of files and directories, total item count, and a DirectoryStructure for efficient access. Contains methods for manipulating the file system (create, remove, move, search). Extends EventTarget to notify view of changes, and view can subscribe to changes in certain directories (stretch goal).
-
-```mermaid
-flowchart TD
-    A[Fullscreen Layout] --> B[Sidebar with File Tree]
-    A --> C[Main Content Area]
-    B --> D[Collapsible Directories]
-    B --> E[File and Directory Icons]
-    C --> F[Detail View]
-    C --> G[Action Buttons]
-    C --> H[Tree View with Icons]
-    C --> I[Right-Click Context Menus]
-    subgraph Mobile View
-        J[Narrow Layout, No Sidebar]
-        K[Vertical Icon Stack]
-        L[List View with Large Touch Targets]
-        M[Long-Press Actions]
-    end
-    F -.->|Responsive Breakpoint| J
-    G -.->|Responsive Breakpoint| K
-    H -.->|Responsive Breakpoint| L
-    I -.->|Responsive Breakpoint| M
-```
-
-### Technical requirements: algorithms
-
-- File/Directory Creation: Function to create new FileNode objects and insert them into the FileSystem at the correct location.
-- Expansion/Collapse: Toggle function to change the expanded state of directories and update the view accordingly.
-- Removal: Recursive function to delete a FileNode and all its children from the FileSystem.
-- Move: Drag-and-drop handler to change the parentPath of a FileNode and update its position in the FileSystem.
-- Search: Function to traverse the FileSystem and return all FileNodes matching a given name, with optional subtree restriction.
-- Weather API Integration: Function to detect .city files, extract the city name, call the OpenWeatherMap API, and handle the response to download the weather data as a JSON file.
-- Responsive Design: CSS media queries and JavaScript event listeners to adjust the layout and functionality based on screen size.
-- Multi-Select: State management to track multiple selected FileNodes and update the UI accordingly.
-- File/Directory Info Display: Function to retrieve and display detailed information about the selected FileNode.
-
-### Technical requirements: performance
-
-- Efficient Data Structures: Use of maps/objects for O(1) access to FileNodes by path.
-- Lazy Loading: Only render visible parts of the file tree to improve performance with large datasets.
-- Debounced Search: Implement debouncing for search input to reduce the number of search operations.
-- Optimized Rendering: Use React's key prop and memoization to minimize unnecessary re-renders.
-- Asynchronous Operations: Use async/await for API calls and long-running operations to keep the UI responsive.
-- Profiling and Optimization: Regularly profile the application to identify and optimize performance bottlenecks.
-
-### Technical requirements: testing
-
-- Unit Tests: Write unit tests for all core functions (create, remove, move, search, API integration).
-- Integration Tests: Test the interaction between components and the overall file system functionality.
-- Performance Tests: Measure the time taken for operations on large datasets (e.g., 10,000 files).
-- Responsive Tests: Verify the UI adapts correctly to different screen sizes and orientations.
-- User Acceptance Tests: Conduct tests with real users to ensure the application meets usability and functionality requirements.
+- DirectoryStructure: object mapping directory paths to FileNode objects for quick lookup (not used as we're simply concerned about the paths).
+- FileSystem:
+  - structure containing arrays of files and directories, total item count, and a DirectoryStructure for efficient access.
+  - Contains methods for manipulating the file system (create, remove, move, search)
+  - Extends EventTarget to notify view of changes, and view can subscribe to changes in certain directories (stretch goal).
