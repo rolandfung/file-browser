@@ -37,10 +37,10 @@ Extra features I would like to implement if time permits:
 1. ✅ Resolve move conflicts (skip/replace/cancel) using a generator function
 1. ✅ Undo a move, delete, or add operation with ctrl-z
 1. ✅ Type/name sorting
+1. ✅ Put file generation function into a web worker to avoid blocking the main thread, and have it cache the generated structure in local storage for faster subsequent generations.
 1. Move selected files with toolbar button which opens dialog with a directory navigator so user can move files across many levels quickly
-1. Put file generation function into a web worker to avoid blocking the main thread, and have it cache the generated structure in local storage for faster subsequent generations.
-1. Test coverage for file generation
 1. Dark mode
+1. Report code coverage for Playwright tests (turns out this is a headache to set up and not worth the effort for this demo).
 
 ## User Stories
 
@@ -109,11 +109,13 @@ The e2e tests cover the following key functionality:
 - Performance testing with large datasets
 - Keyboard navigation and accessibility
 
-### Technical requirements
+### Technical Notes
 
 - FileNode: interface representing a file or directory with properties like id, name, type, path, parentPath, level, size, created, modified, and optional extension.
 - DirectoryStructure: object mapping directory paths to FileNode objects for quick lookup (not used as we're simply concerned about the paths).
-- FileSystem:
-  - structure containing arrays of files and directories, total item count, and a DirectoryStructure for efficient access.
-  - Contains methods for manipulating the file system (create, remove, move, search)
-  - Extends EventTarget to notify view of changes, and view can subscribe to changes in certain directories (stretch goal).
+- FileSystem/FileSystemView:
+  - Stores file information in a simple array, and a map of file paths to the file array indices
+  - Contains methods for manipulating the file system (create, remove, move, search). Creation and removal operations are constant time O(1) due to the use of a storage array and map for index lookup.
+  - Extends EventTarget to notify view of changes to which directories are being added to or removed from.
+    - FileSystemView only needs to re-render if the current contextPath (the directory being viewed) is a parent of any of the paths being added to or removed from, as indicated by the details of the event.
+    - This approach was chosen over a more "React-centric" way of state management using React built-ins like `useState`, `useSelector`, or Redux, because the slice of state we are listening to can _change_ as we navigate through the directories.

@@ -17,7 +17,7 @@
 ## Testing strategy
 
 1. Use playwright for automated testing and interactive stakeholder review
-1. Report coverage `with playwright show-report` (after running `yarn playwright`)
+1. Report results `with playwright show-report` (after running `yarn playwright`)
 1. UI components are developed with the correct semantic tags and accessibility in mind, so that they can be tested with screen readers and other assistive technologies, as well as being SEO friendly and easy to test from an automation perspective (e.g. @testing-library/react [guidelines](https://testing-library.com/docs/guiding-principles/).
 
 ## Feature development procedure
@@ -37,6 +37,10 @@ This section is just to get an idea of how I approached development for this pro
 ## Use of AI
 
 Copilot Agent mode was used heavily to draft stories, test cases, sample data, UX design, and technical requirements. It was also used to help install and configure tooling like Playwright and @testing-library/react, as these can be time consuming to set up from scratch, and I wanted to spend more of my time on the actual implementation.
+
+## Other notes
+
+See task_planning.md for more details about features and technical decision making.
 
 **=========== ORIGINAL README FROM STARTER REPO BELOW THIS LINE ===========**
 
