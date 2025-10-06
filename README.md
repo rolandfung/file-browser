@@ -3,13 +3,16 @@
 ## Setup
 
 - This code developed using Node.js v24. If installed dependencies seem to be having issues with the node environment, please install `nvm` (see below) and run `nvm use` to switch to the correct Node version.
-- Follow the rest of the instructions in the original README below to install dependencies and run the project.
-- Update OPEN_WEATHER_API_KEY in `.env` file with your own API key to use the weather download feature
+- Create and update `.env` file in the root directory according to .env.example. You'll need and OpenWeather API key to use the weather download functionality.
 
 ## Notes
 
-- Use `yarn playwright test` to run the automated tests. This will be in the place of traditional unit tests run with `yarn test` from the starter repo
-- Use ` yarn playwright test --ui` to run the interactive test runner, which can be useful for stakeholder review
+- Run `yarn install` to install dependencies
+- Run `yarn run build` to build the project
+- Run `yarn run start` to start the project
+- Run `yarn run build-hot-reload` in if you want to make live edits
+- Use `yarn run playwright` to run the automated tests
+- Use `yarn run playwright:ui` to start the interactive test runner
 
 ## Testing strategy
 
@@ -80,3 +83,7 @@ A starter Webpack 4 configuration for basic projects with Express and React.
 
 - Typescript guide: https://basarat.gitbook.io/typescript/
 - VSCode custom settings: https://github.com/gianluca-venturini/env_confs/tree/master/vs_codet
+
+```
+
+```
