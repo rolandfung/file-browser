@@ -5,11 +5,11 @@
   "author": "Gianluca Venturini <gianluca@stellarite.io>",
   "license": "MIT",
   "scripts": {
-    "build": "PROJECTS=frontend,backend webpack --progress",
+    "build": "PROJECTS=frontend,backend,worker webpack --progress",
     "test": "PROJECTS=test webpack --progress && node --inspect ./node_modules/jasmine/bin/jasmine.js dist/test.js",
-    "build-watch": "PROJECTS=frontend,backend WATCH=true webpack --progress",
+    "build-watch": "PROJECTS=frontend,backend,worker WATCH=true webpack --progress",
     "start": "node --inspect dist/server.js",
-    "build-hot-reload": "PROJECTS=frontend webpack-dev-server --mode=development",
+    "build-hot-reload": "PROJECTS=frontend,worker webpack-dev-server --mode=development",
     "clean": "rm -rf node_modules/ dist/"
   },
   "engines": {
@@ -41,6 +41,7 @@
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^4.17.1",
+    "path-browserify": "^1.0.1",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1"
   }

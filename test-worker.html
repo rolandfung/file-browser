@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Worker Test</title>
+</head>
+<body>
+    <h1>Web Worker File Generation Test</h1>
+    <button id="testWorker">Test Web Worker</button>
+    <div id="status"></div>
+    <div id="progress"></div>
+
+    <script>
+        const testWorkerBtn = document.getElementById('testWorker');
+        const statusDiv = document.getElementById('status');
+        const progressDiv = document.getElementById('progress');
+
+        testWorkerBtn.addEventListener('click', () => {
+            statusDiv.innerHTML = 'Starting Web Worker...';
+            
+            try {
+                const worker = new Worker('/fileGenerationWorker.js');
+                
+                worker.onmessage = (event) => {
+                    const { type, payload } = event.data;
+                    console.log('Worker message:', event.data);
+                    
+                    switch (type) {
+                        case 'PROGRESS':
+                            statusDiv.innerHTML = `Status: ${payload.message}`;
+                            progressDiv.innerHTML = `Progress: ${payload.progress}%`;
+                            break;
+                        case 'COMPLETE':
+                            statusDiv.innerHTML = 'Generation complete!';
+                            progressDiv.innerHTML = `Generated ${payload.files.length} files and ${payload.directories.length} directories`;
+                            console.log('Generated data:', payload);
+                            worker.terminate();
+                            break;
+                        case 'ERROR':
+                            statusDiv.innerHTML = `Error: ${payload.message}`;
+                            console.error('Worker error:', payload);
+                            worker.terminate();
+                            break;
+                    }
+                };
+                
+                worker.onerror = (error) => {
+                    statusDiv.innerHTML = `Worker error: ${error.message}`;
+                    console.error('Worker error:', error);
+                };
+                
+                worker.postMessage({ type: 'GENERATE_FILES' });
+                
+            } catch (error) {
+                statusDiv.innerHTML = `Failed to create worker: ${error.message}`;
+                console.error('Failed to create worker:', error);
+            }
+        });
+    </script>
+</body>
+</html>

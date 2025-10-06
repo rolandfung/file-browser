@@ -9,11 +9,11 @@ import { FileNode } from "../types";
 /**
  * Test function to demonstrate the file generation
  */
-export function testFileGeneration(): void {
+export async function testFileGeneration(): Promise<void> {
   console.log("Generating 10,000 test files...");
   const startTime = performance.now();
 
-  const result = generate10kFiles();
+  const result = await generate10kFiles();
 
   const endTime = performance.now();
   console.log(`Generation completed in ${(endTime - startTime).toFixed(2)}ms`);
@@ -69,7 +69,7 @@ export function testFileGeneration(): void {
 
   // Verify consistency - run generation again and compare
   console.log("\n=== Consistency Test ===");
-  const result2 = generate10kFiles();
+  const result2 = await generate10kFiles();
   const isConsistent =
     result.totalItems === result2.totalItems &&
     result.files.length === result2.files.length &&
@@ -121,23 +121,25 @@ function displayDirectoryContents(
 /**
  * Function to get files by extension for testing specific functionality
  */
-export function getFilesByExtension(extension: string): FileNode[] {
-  const result = generate10kFiles();
+export async function getFilesByExtension(
+  extension: string
+): Promise<FileNode[]> {
+  const result = await generate10kFiles();
   return result.files.filter((file) => file.extension === extension);
 }
 
 /**
  * Function to get all city files for weather API testing
  */
-export function getCityFiles(): FileNode[] {
-  return getFilesByExtension("city");
+export async function getCityFiles(): Promise<FileNode[]> {
+  return await getFilesByExtension("city");
 }
 
 /**
  * Function to search files by name pattern
  */
-export function searchFiles(pattern: string): FileNode[] {
-  const result = generate10kFiles();
+export async function searchFiles(pattern: string): Promise<FileNode[]> {
+  const result = await generate10kFiles();
   const regex = new RegExp(pattern, "i");
   return [...result.files, ...result.directories].filter((item) =>
     regex.test(item.name)

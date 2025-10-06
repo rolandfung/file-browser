@@ -5,11 +5,9 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
 
 import { FileNode } from "./types";
-import {
-  generate10kFiles,
-  generateEmptyFileSystem,
-} from "./datagen/fileSystemHelpers";
+import { generateEmptyFileSystem } from "./datagen/fileSystemHelpers";
 import { MultiFileSystemView } from "./components/MultiFileSystemView";
+import { useFileGenerationWorker } from "./hooks/useFileGenerationWorker";
 
 interface AppProps {}
 
@@ -17,37 +15,106 @@ interface AppState {
   fsNodes: FileNode[];
 }
 
-export class App extends React.Component<AppProps, AppState> {
-  constructor(props: AppProps) {
-    super(props);
+// Functional component to use hooks for worker
+const AppContent: React.FC = () => {
+  const [fsNodes, setFsNodes] = React.useState<FileNode[]>(() => {
     const { directories, files } = generateEmptyFileSystem();
-    this.state = { fsNodes: [...files, ...directories] };
-  }
+    return [...files, ...directories];
+  });
 
-  handleGenerateFiles = () => {
-    const tenKNodes = generate10kFiles();
-    console.debug(tenKNodes);
-    this.setState({ fsNodes: [...tenKNodes.files, ...tenKNodes.directories] });
-  };
+  // Memoize the FileSystem instance to prevent unnecessary recreations
+  // while files are being generated.
+  const fileSystem = React.useMemo(() => new FileSystem(fsNodes), [fsNodes]);
 
-  render() {
-    const { fsNodes } = this.state;
-    return (
-      <DndProvider backend={HTML5Backend}>
-        <h2>File Browser Demo</h2>
+  const handleFilesGenerated = React.useCallback(
+    (files: FileNode[], directories: FileNode[]) => {
+      setFsNodes([...files, ...directories]);
+    },
+    []
+  );
+
+  const { generateFiles, isGenerating, progress, statusMessage, error } =
+    useFileGenerationWorker(handleFilesGenerated);
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <h2>File Browser Demo</h2>
+      <div style={{ marginBottom: "20px" }}>
         <button
-          onClick={this.handleGenerateFiles}
+          onClick={generateFiles}
+          disabled={isGenerating}
           style={{
             padding: "10px 20px",
-            marginBottom: "20px",
             fontSize: "16px",
+            backgroundColor: isGenerating ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: isGenerating ? "not-allowed" : "pointer",
+            marginRight: "10px",
+            marginBottom: "10px",
           }}
         >
-          Generate 10k Files/Directories
+          {isGenerating ? "Generating..." : "Generate 10k Files/Directories"}
         </button>
-        <MultiFileSystemView fileSystem={new FileSystem(fsNodes)} />
-      </DndProvider>
-    );
+        <p>
+          Files are generated in a web worker additional artificial delay to
+          simulate heavy computation. Note that UI remains responsive
+        </p>
+
+        {/* Progress indicator */}
+        {(isGenerating || progress > 0) && (
+          <div style={{ marginTop: "10px" }}>
+            <div
+              style={{
+                width: "400px",
+                backgroundColor: "#f0f0f0",
+                borderRadius: "4px",
+                height: "20px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: "#28a745",
+                  height: "100%",
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
+            <div style={{ marginTop: "5px", fontSize: "14px", color: "#666" }}>
+              {statusMessage} {progress > 0 && `(${progress}%)`}
+            </div>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div
+            style={{
+              marginTop: "10px",
+              color: "#dc3545",
+              padding: "10px",
+              backgroundColor: "#f8d7da",
+              border: "1px solid #f5c6cb",
+              borderRadius: "4px",
+            }}
+          >
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+      </div>
+      <hr style={{ marginBottom: "20px" }} />
+
+      <MultiFileSystemView fileSystem={fileSystem} />
+    </DndProvider>
+  );
+};
+
+export class App extends React.Component<AppProps, AppState> {
+  render() {
+    return <AppContent />;
   }
 }
 

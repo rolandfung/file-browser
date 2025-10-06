@@ -108,6 +108,21 @@ const backendBuild = (name, entryFile, outputFile = 'server.js') => {
     };
 }
 
+const workerBuild = (name, entryFile, outputFile) => ({
+    name: name,
+    entry: entryFile,
+    output: {
+        path: __dirname + '/dist/www',
+        filename: outputFile,
+    },
+    module: moduleConfig({ target: 'ES2020', module: 'ES2020' }),
+    mode: 'development',
+    devtool: 'cheap-module-source-map',
+    resolve: resolveConfig,
+    watch: IS_WATCH,
+    target: 'webworker',
+});
+
 const availableProjects = {
 
     frontend: frontendBuild('frontend', './src/frontend/main.ts', 'bundle.js'),
@@ -115,6 +130,8 @@ const availableProjects = {
     backend: backendBuild('backend', './src/backend/main.ts', 'server.js'),
     
     test: backendBuild('test', './src/test.ts', 'test.js'),
+
+    worker: workerBuild('worker', './src/frontend/workers/fileGenerationWorker.ts', 'fileGenerationWorker.js'),
 
 };
 

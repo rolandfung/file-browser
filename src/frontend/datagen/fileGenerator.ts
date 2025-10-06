@@ -266,9 +266,19 @@ const rootDir: FileNode = {
 };
 
 /**
- * Generates a consistent set of 10,000 files across 6 directory levels
+ * Progress callback type for file generation
  */
-export function generate10kFiles() {
+type ProgressCallback = (
+  progress: number,
+  message: string,
+  currentItem?: string
+) => void;
+
+/**
+ * Main function to generate 10k files and directories with realistic distribution
+ * Uses seeded random generation for consistent results across runs
+ */
+export async function generate10kFiles(onProgress?: ProgressCallback) {
   const rng = new SeededRandom(GENERATION_CONFIG.SEED);
   const files: FileNode[] = [];
   const directories: FileNode[] = [];
@@ -280,6 +290,12 @@ export function generate10kFiles() {
   // Generate directory structure first (6 levels deep)
   let directoryCount = 1; // Start with root
   const maxDirectoriesPerLevel = [1, 8, 25, 60, 120, 200]; // Roughly exponential growth
+  const totalExpectedDirs = maxDirectoriesPerLevel.reduce((a, b) => a + b, 0);
+
+  onProgress?.(5, "Building directory structure...", "root directory");
+
+  // Artificial delay to demonstrate non-blocking UI (remove in production)
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   for (let level = 1; level <= GENERATION_CONFIG.MAX_DEPTH; level++) {
     const parentsAtPreviousLevel = directories.filter(
@@ -314,12 +330,30 @@ export function generate10kFiles() {
       directories.push(dir);
       structure[dirPath] = dir;
       directoryCount++;
+
+      // Update progress every 50 directories or on level completion
+      if (directoryCount % 50 === 0 || i === targetDirsThisLevel - 1) {
+        const dirProgress = Math.min(
+          20,
+          5 + (directoryCount / totalExpectedDirs) * 15
+        );
+        onProgress?.(
+          dirProgress,
+          `Creating directories (Level ${level})`,
+          uniqueName
+        );
+
+        // Artificial delay to demonstrate non-blocking UI (remove in production)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
     }
   }
 
   // Generate files distributed across all directories
   let fileCount = 0;
   const targetFiles = GENERATION_CONFIG.TOTAL_FILES - directories.length;
+
+  onProgress?.(25, "Generating files...", `Target: ${targetFiles} files`);
 
   while (fileCount < targetFiles) {
     const parentDir = rng.choice(directories);
@@ -364,7 +398,22 @@ export function generate10kFiles() {
     files.push(file);
     structure[filePath] = file;
     fileCount++;
+
+    // Update progress every 500 files to avoid too many updates
+    if (fileCount % 500 === 0 || fileCount === targetFiles) {
+      const fileProgress = 25 + (fileCount / targetFiles) * 60; // 25% to 85%
+      onProgress?.(
+        fileProgress,
+        `Creating files (${fileCount}/${targetFiles})`,
+        uniqueName
+      );
+
+      // Artificial delay to demonstrate non-blocking UI (remove in production)
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   }
+
+  onProgress?.(90, "Finalizing file system structure...");
 
   console.log(
     `Generated ${directories.length} directories and ${files.length} files (${
