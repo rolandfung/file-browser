@@ -118,6 +118,11 @@ export function VirtualizedList({
               top: 0,
               left: 0,
               right: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              // prevent wrapping which can cause height issues
+              whiteSpace: "nowrap",
             }}
           >
             {visibleChildren}

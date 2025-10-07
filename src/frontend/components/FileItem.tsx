@@ -57,62 +57,59 @@ export function FileItem({
   );
 
   const { isOver, canDrop, drop } = useFileDrop({
-    nodePath: node.path,
-    isDirectory,
+    targetNode: node,
     onFileDrop,
   });
 
   const expandIcon = isDirectory ? (expanded ? "▼" : "▶") : null;
 
   return (
-    <div ref={drop}>
-      <div
-        ref={dragRef}
-        style={(() => {
-          const backgroundColor =
-            isOver && canDrop ? "#e3f2fd" : selected ? "#ddd" : "transparent";
-          return {
-            opacity,
-            backgroundColor,
-            border: isOver && canDrop ? "2px dashed #2196f3" : "none",
-            padding: isOver && canDrop ? "2px" : "4px",
-          };
-        })()}
-        role="listitem"
-        aria-label={node.name}
-        className={`file-item ${selected ? "selected" : ""}`}
-        data-level={level}
-        data-type={node.type}
-        data-name={node.name}
-        data-selected={selected}
-        data-expanded={expanded}
-        aria-expanded={expanded}
-        onClick={(e: React.MouseEvent) => {
-          e.stopPropagation();
-          if (onNameClick) {
-            onNameClick(e, node);
-          }
-        }}
-      >
-        {icon}
-        <span title={node.path} style={{ marginLeft: 5, marginRight: 5 }}>
-          {node.name}
+    <div
+      ref={(i) => dragRef(drop(i))}
+      style={{
+        paddingLeft: isOver && canDrop ? level * 20 - 4 : level * 20,
+        border: isOver && canDrop ? "2px dashed #2196f3" : "none",
+        padding: isOver && canDrop ? "2px" : "4px",
+        height: 29,
+        backgroundColor:
+          isOver && canDrop ? "#e3f2fd" : selected ? "#ddd" : "transparent",
+        opacity,
+        width: "100%",
+      }}
+      role="listitem"
+      aria-label={node.name}
+      className={`file-item ${selected ? "selected" : ""}`}
+      data-level={level}
+      data-type={node.type}
+      data-name={node.name}
+      data-selected={selected}
+      data-expanded={expanded}
+      aria-expanded={expanded}
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onNameClick) {
+          onNameClick(e, node);
+        }
+      }}
+    >
+      {icon}
+      <span title={node.path} style={{ marginLeft: 5, marginRight: 5 }}>
+        {node.name}
+      </span>
+      {expandIcon && (
+        <span
+          aria-label={"Expand/Collapse " + node.name}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onExpandToggle) onExpandToggle(node);
+          }}
+          role="button"
+          tabIndex={0}
+          className="expand-icon"
+        >
+          {expandIcon}
         </span>
-        {expandIcon && (
-          <span
-            aria-label={"Expand/Collapse " + node.name}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onExpandToggle) onExpandToggle(node);
-            }}
-            role="button"
-            tabIndex={0}
-            className="expand-icon"
-          >
-            {expandIcon}
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -50,8 +50,10 @@ export interface CrumbItemProps {
 
 export function CrumbItem({ part, path, onClick, onFileDrop }: CrumbItemProps) {
   const { isOver, canDrop, drop } = useFileDrop({
-    nodePath: path,
-    isDirectory: true,
+    targetNode: {
+      path,
+      type: "directory",
+    },
     onFileDrop: (droppedPaths, targetPath) => {
       onFileDrop(droppedPaths, targetPath);
     },

@@ -79,29 +79,28 @@ export function FileTree({
     >
       <VirtualizedList listItemHeight={21}>
         {flattenedItems.map(({ node, level }) => (
-          <div key={node.path} style={{ paddingLeft: level * 20 }}>
-            <FileItem
-              selectedFilePaths={selectedFilePaths}
-              level={level}
-              onNameClick={(event: React.MouseEvent, node: FileNode) => {
-                switch (event.detail) {
-                  case 2:
-                    if (node.type === "directory" && onDrillDown) {
-                      onDrillDown(node);
-                    }
-                    break;
-                  default:
-                    handleItemSelect(event, node, sortingFunc);
-                    break;
-                }
-              }}
-              onExpandToggle={handleExpandleToggle}
-              onFileDrop={onFileDrop}
-              node={node}
-              selected={selectedFilePaths.has(node.path)}
-              expanded={expandedDirs.has(node.path)}
-            />
-          </div>
+          <FileItem
+            key={node.path}
+            selectedFilePaths={selectedFilePaths}
+            level={level}
+            onNameClick={(event: React.MouseEvent, node: FileNode) => {
+              switch (event.detail) {
+                case 2:
+                  if (node.type === "directory" && onDrillDown) {
+                    onDrillDown(node);
+                  }
+                  break;
+                default:
+                  handleItemSelect(event, node, sortingFunc);
+                  break;
+              }
+            }}
+            onExpandToggle={handleExpandleToggle}
+            onFileDrop={onFileDrop}
+            node={node}
+            selected={selectedFilePaths.has(node.path)}
+            expanded={expandedDirs.has(node.path)}
+          />
         ))}
       </VirtualizedList>
     </div>
