@@ -1,36 +1,44 @@
 import * as React from "react";
-import { useFileDrop } from "../../hooks/useFileDrop";
+import { useFileDrop } from "../hooks/useFileDrop";
+import { FileTreeNode } from "../FileTreeNode";
 
 export interface BreadcrumbsProps {
-  contextPath: string;
-  onCrumbClick: (event: React.MouseEvent) => void;
-  onFileDrop: (droppedPaths: string[], targetPath: string) => void;
+  contextNode: FileTreeNode;
+  onCrumbClick: (crumbNode: FileTreeNode) => void;
+  onFileDrop: (droppedNodes: FileTreeNode[], targetNode: FileTreeNode) => void;
 }
 
 export function Breadcrumbs({
-  contextPath = "/",
+  contextNode,
   onCrumbClick,
   onFileDrop,
 }: BreadcrumbsProps) {
-  const parts = contextPath.split("/").filter((p) => p.length > 0);
+  const renderCrumbs = (
+    node: FileTreeNode | null
+  ): { slug: string; node: FileTreeNode }[] => {
+    // walks up the tree to root to build the breadcrumb trail
+    const crumbs: { slug: string; node: FileTreeNode }[] = [];
+    let current: FileTreeNode | null = node;
+    while (current) {
+      crumbs.unshift({
+        slug: current.name === "root" ? "/" : current.name,
+        node: current,
+      });
+      current = current.parent;
+    }
+    return crumbs;
+  };
 
   return (
     <div style={{ marginBottom: 10, padding: 5 }}>
       Current Path:{" "}
-      <CrumbItem
-        part={"/"}
-        path={"/"}
-        onClick={onCrumbClick}
-        onFileDrop={onFileDrop}
-      />{" "}
-      {parts.map((part, idx) => {
-        const path = "/" + parts.slice(0, idx + 1).join("/");
+      {renderCrumbs(contextNode).map(({ node, slug }, idx) => {
         return (
-          <span key={path}>
-            {idx !== 0 ? <span> / </span> : null}
+          <span key={node.getFullNodePath()}>
+            {idx > 1 ? " / " : " "}
             <CrumbItem
-              part={part}
-              path={path}
+              node={node}
+              slug={slug}
               onClick={onCrumbClick}
               onFileDrop={onFileDrop}
             />
@@ -42,29 +50,24 @@ export function Breadcrumbs({
 }
 
 export interface CrumbItemProps {
-  part: string;
-  path: string;
-  onClick: (event: React.MouseEvent) => void;
-  onFileDrop: (droppedPaths: string[], targetPath: string) => void;
+  node: FileTreeNode;
+  slug: string;
+  onClick: (node: FileTreeNode) => void;
+  onFileDrop: (droppedNodes: FileTreeNode[], targetNode: FileTreeNode) => void;
 }
 
-export function CrumbItem({ part, path, onClick, onFileDrop }: CrumbItemProps) {
+export function CrumbItem({ node, slug, onClick, onFileDrop }: CrumbItemProps) {
   const { isOver, canDrop, drop } = useFileDrop({
-    targetNode: {
-      path,
-      type: "directory",
-    },
-    onFileDrop: (droppedPaths, targetPath) => {
-      onFileDrop(droppedPaths, targetPath);
-    },
+    targetNode: node,
+    onFileDrop,
   });
   return (
     <span
       ref={drop}
       role="navigation"
       tabIndex={0}
-      data-path={path}
-      onClick={onClick}
+      data-path={node.getFullNodePath()}
+      onClick={() => onClick(node)}
       style={{
         display: "inline-block",
         padding: "2px 5px",
@@ -74,7 +77,7 @@ export function CrumbItem({ part, path, onClick, onFileDrop }: CrumbItemProps) {
         backgroundColor: "#f0f0f0",
       }}
     >
-      {part}
+      {slug}
     </span>
   );
 }

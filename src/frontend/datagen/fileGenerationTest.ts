@@ -1,10 +1,45 @@
-import {
-  generate10kFiles,
-  buildFileTree,
-  getFileIcon,
-  formatFileSize,
-} from "./fileGenerator";
-import { FileNode } from "../types";
+import { generate10kFiles, getFileIcon, formatFileSize } from "./fileGenerator";
+import { FileTreeNode } from "../FileTreeNode";
+
+/**
+ * Helper function to count all nodes in the tree
+ */
+function countNodes(root: FileTreeNode): {
+  totalItems: number;
+  directories: FileTreeNode[];
+  files: FileTreeNode[];
+} {
+  const directories: FileTreeNode[] = [];
+  const files: FileTreeNode[] = [];
+
+  function traverse(node: FileTreeNode) {
+    if (node.type === "directory") {
+      directories.push(node);
+      for (const child of node.children.values()) {
+        traverse(child);
+      }
+    } else {
+      files.push(node);
+    }
+  }
+
+  traverse(root);
+  return { totalItems: directories.length + files.length, directories, files };
+}
+
+/**
+ * Helper function to calculate depths for all nodes
+ */
+function calculateDepths(
+  root: FileTreeNode,
+  depth: number,
+  depthMap: Map<FileTreeNode, number>
+) {
+  depthMap.set(root, depth);
+  for (const child of root.children.values()) {
+    calculateDepths(child, depth + 1, depthMap);
+  }
+}
 
 /**
  * Test function to demonstrate the file generation
@@ -13,22 +48,28 @@ export async function testFileGeneration(): Promise<void> {
   console.log("Generating 10,000 test files...");
   const startTime = performance.now();
 
-  const result = await generate10kFiles();
+  const rootNode = await generate10kFiles();
 
   const endTime = performance.now();
   console.log(`Generation completed in ${(endTime - startTime).toFixed(2)}ms`);
 
+  // Count all nodes
+  const { totalItems, directories, files } = countNodes(rootNode);
+
   // Display statistics
   console.log("\n=== Generation Statistics ===");
-  console.log(`Total items: ${result.totalItems}`);
-  console.log(`Directories: ${result.directories.length}`);
-  console.log(`Files: ${result.files.length}`);
+  console.log(`Total items: ${totalItems}`);
+  console.log(`Directories: ${directories.length}`);
+  console.log(`Files: ${files.length}`);
 
   // Show depth distribution
   const depthStats = new Map<number, number>();
-  [...result.directories, ...result.files].forEach((item) => {
-    depthStats.set(item.level, (depthStats.get(item.level) || 0) + 1);
-  });
+  const depthMap = new Map<FileTreeNode, number>();
+  calculateDepths(rootNode, 0, depthMap);
+
+  for (const [, depth] of depthMap.entries()) {
+    depthStats.set(depth, (depthStats.get(depth) || 0) + 1);
+  }
 
   console.log("\n=== Depth Distribution ===");
   for (const [level, count] of depthStats.entries()) {
@@ -37,8 +78,10 @@ export async function testFileGeneration(): Promise<void> {
 
   // Show file type distribution
   const extensionStats = new Map<string, number>();
-  result.files.forEach((file) => {
-    const ext = file.extension || "no-extension";
+  files.forEach((file: FileTreeNode) => {
+    const ext = file.name.includes(".")
+      ? file.name.split(".").pop() || "no-extension"
+      : "no-extension";
     extensionStats.set(ext, (extensionStats.get(ext) || 0) + 1);
   });
 
@@ -49,10 +92,13 @@ export async function testFileGeneration(): Promise<void> {
   }
 
   // Show size statistics
-  const totalSize = result.files.reduce((sum, file) => sum + file.size, 0);
-  const avgSize = totalSize / result.files.length;
-  const maxSize = Math.max(...result.files.map((f) => f.size));
-  const minSize = Math.min(...result.files.map((f) => f.size));
+  const totalSize = files.reduce(
+    (sum: number, file: FileTreeNode) => sum + file.size,
+    0
+  );
+  const avgSize = totalSize / files.length;
+  const maxSize = Math.max(...files.map((f: FileTreeNode) => f.size));
+  const minSize = Math.min(...files.map((f: FileTreeNode) => f.size));
 
   console.log("\n=== Size Statistics ===");
   console.log(`Total size: ${formatFileSize(totalSize)}`);
@@ -60,26 +106,23 @@ export async function testFileGeneration(): Promise<void> {
   console.log(`Largest file: ${formatFileSize(maxSize)}`);
   console.log(`Smallest file: ${formatFileSize(minSize)}`);
 
-  // Build tree structure
-  const tree = buildFileTree([...result.directories, ...result.files]);
-
   // Show sample directory contents
   console.log("\n=== Sample Directory Structure ===");
-  displayDirectoryContents(tree, "/", 0, 3); // Show first 3 levels
+  displayDirectoryContents(rootNode, 0, 3); // Show first 3 levels
 
   // Verify consistency - run generation again and compare
   console.log("\n=== Consistency Test ===");
-  const result2 = await generate10kFiles();
+  const rootNode2 = await generate10kFiles();
+  const {
+    totalItems: totalItems2,
+    files: files2,
+    directories: directories2,
+  } = countNodes(rootNode2);
   const isConsistent =
-    result.totalItems === result2.totalItems &&
-    result.files.length === result2.files.length &&
-    result.directories.length === result2.directories.length &&
-    result.files.every(
-      (file, index) =>
-        file.name === result2.files[index].name &&
-        file.path === result2.files[index].path &&
-        file.size === result2.files[index].size
-    );
+    totalItems === totalItems2 &&
+    files.length === files2.length &&
+    directories.length === directories2.length &&
+    compareNodeStructure(rootNode, rootNode2);
 
   console.log(`Consistency check: ${isConsistent ? "✅ PASSED" : "❌ FAILED"}`);
 
@@ -87,29 +130,65 @@ export async function testFileGeneration(): Promise<void> {
 }
 
 /**
+ * Helper function to compare two tree structures for consistency
+ */
+function compareNodeStructure(
+  node1: FileTreeNode,
+  node2: FileTreeNode
+): boolean {
+  if (
+    node1.name !== node2.name ||
+    node1.type !== node2.type ||
+    node1.size !== node2.size
+  ) {
+    return false;
+  }
+
+  if (node1.children.size !== node2.children.size) {
+    return false;
+  }
+
+  for (const [name, child1] of node1.children) {
+    const child2 = node2.children.get(name);
+    if (!child2 || !compareNodeStructure(child1, child2)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Recursively display directory contents up to a certain depth
  */
 function displayDirectoryContents(
-  tree: Map<string, FileNode[]>,
-  path: string,
+  node: FileTreeNode,
   currentDepth: number,
-  maxDepth: number
+  maxDepth: number,
+  prefix: string = ""
 ): void {
   if (currentDepth >= maxDepth) return;
 
-  const children = tree.get(path) || [];
+  const children = Array.from(node.children.values());
   const indent = "  ".repeat(currentDepth);
 
   children.slice(0, 5).forEach((child) => {
     // Show max 5 items per directory
-    const icon =
-      child.type === "directory" ? "📁" : getFileIcon(child.extension);
+    const extension = child.name.includes(".")
+      ? child.name.split(".").pop() || ""
+      : "";
+    const icon = child.type === "directory" ? "📁" : getFileIcon(extension);
     const sizeInfo =
       child.type === "file" ? ` (${formatFileSize(child.size)})` : "";
     console.log(`${indent}${icon} ${child.name}${sizeInfo}`);
 
     if (child.type === "directory") {
-      displayDirectoryContents(tree, child.path, currentDepth + 1, maxDepth);
+      displayDirectoryContents(
+        child,
+        currentDepth + 1,
+        maxDepth,
+        `${prefix}${child.name}/`
+      );
     }
   });
 
@@ -123,27 +202,29 @@ function displayDirectoryContents(
  */
 export async function getFilesByExtension(
   extension: string
-): Promise<FileNode[]> {
-  const result = await generate10kFiles();
-  return result.files.filter((file) => file.extension === extension);
+): Promise<FileTreeNode[]> {
+  const rootNode = await generate10kFiles();
+  const { files } = countNodes(rootNode);
+  return files.filter((file) => {
+    return file.name.endsWith(`.${extension}`);
+  });
 }
 
 /**
  * Function to get all city files for weather API testing
  */
-export async function getCityFiles(): Promise<FileNode[]> {
+export async function getCityFiles(): Promise<FileTreeNode[]> {
   return await getFilesByExtension("city");
 }
 
 /**
  * Function to search files by name pattern
  */
-export async function searchFiles(pattern: string): Promise<FileNode[]> {
-  const result = await generate10kFiles();
+export async function searchFiles(pattern: string): Promise<FileTreeNode[]> {
+  const rootNode = await generate10kFiles();
+  const { files, directories } = countNodes(rootNode);
   const regex = new RegExp(pattern, "i");
-  return [...result.files, ...result.directories].filter((item) =>
-    regex.test(item.name)
-  );
+  return [...files, ...directories].filter((item) => regex.test(item.name));
 }
 
 // Export the test function for use in development

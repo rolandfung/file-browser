@@ -1,27 +1,23 @@
 import * as React from "react";
 import { useDrag } from "react-dnd";
-import {
-  FileNode,
-  FOLDER_ICON,
-  EXPANDED_FOLDER_ICON,
-  FILE_ICONS,
-} from "../types";
-import { useFileDrop } from "../../hooks/useFileDrop";
+import { FOLDER_ICON, EXPANDED_FOLDER_ICON, FILE_ICONS } from "../types";
+import { FileTreeNode } from "../FileTreeNode";
+import { useFileDrop } from "../hooks/useFileDrop";
 
 interface FileItemProps {
-  node: FileNode;
-  selectedFilePaths?: Set<string>;
+  node: FileTreeNode;
+  selectedNodes?: Set<FileTreeNode>;
   level?: number;
   selected: boolean;
   expanded?: boolean;
-  onNameClick?: (event: React.MouseEvent, node: FileNode) => void;
-  onExpandToggle?: (node: FileNode) => void;
-  onFileDrop?: (droppedPaths: string[], targetPath: string) => void;
+  onNameClick?: (event: React.MouseEvent, node: FileTreeNode) => void;
+  onExpandToggle?: (node: FileTreeNode) => void;
+  onFileDrop?: (droppedNodes: FileTreeNode[], targetNode: FileTreeNode) => void;
 }
 
 export function FileItem({
   node,
-  selectedFilePaths = new Set<string>(),
+  selectedNodes = new Set<FileTreeNode>(),
   level = 0,
   selected = false,
   expanded = false,
@@ -30,11 +26,12 @@ export function FileItem({
   onFileDrop,
 }: FileItemProps) {
   const isDirectory = node.type === "directory";
+  const extension = node.name.split(".").pop() || "";
   const icon = isDirectory
     ? expanded
       ? EXPANDED_FOLDER_ICON
       : FOLDER_ICON
-    : FILE_ICONS[node.extension as keyof typeof FILE_ICONS] || "📄";
+    : FILE_ICONS[extension as keyof typeof FILE_ICONS] || "📄";
 
   /** DND controls */
   const [{ opacity }, dragRef] = useDrag(
@@ -43,17 +40,17 @@ export function FileItem({
       item: () => {
         // If this item is selected, drag all selected items
         // Otherwise, drag just this item
-        if (selected && selectedFilePaths.size > 0) {
-          return [...selectedFilePaths];
+        if (selected && selectedNodes.size > 0) {
+          return [...selectedNodes];
         } else {
-          return [node.path];
+          return [node];
         }
       },
       collect: (monitor) => ({
         opacity: monitor.isDragging() ? 0.5 : 1,
       }),
     }),
-    [selected, selectedFilePaths, node.path]
+    [selected, selectedNodes, node]
   );
 
   const { isOver, canDrop, drop } = useFileDrop({
@@ -62,14 +59,13 @@ export function FileItem({
   });
 
   const expandIcon = isDirectory ? (expanded ? "▼" : "▶") : null;
-
   return (
     <div
       ref={(i) => dragRef(drop(i))}
       style={{
+        padding: isOver && canDrop ? "2px" : "4px",
         paddingLeft: isOver && canDrop ? level * 20 - 4 : level * 20,
         border: isOver && canDrop ? "2px dashed #2196f3" : "none",
-        padding: isOver && canDrop ? "2px" : "4px",
         height: 29,
         backgroundColor:
           isOver && canDrop ? "#e3f2fd" : selected ? "#ddd" : "transparent",
@@ -93,7 +89,10 @@ export function FileItem({
       }}
     >
       {icon}
-      <span title={node.path} style={{ marginLeft: 5, marginRight: 5 }}>
+      <span
+        title={node.getFullNodePath()}
+        style={{ marginLeft: 5, marginRight: 5 }}
+      >
         {node.name}
       </span>
       {expandIcon && (

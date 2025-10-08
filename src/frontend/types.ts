@@ -1,45 +1,43 @@
 // TypeScript interfaces and types for the file explorer
+import { FileTreeNode } from "./FileTreeNode";
+type ParentNode = FileTreeNode;
 
-// For UI representation of files and directories
-export interface FileSystemItem {
-  id: string;
-  name: string;
-  type: "file" | "directory";
-  path: string;
-  parentId: string | null;
-  size: number;
-  created: Date;
-  modified: Date;
-  extension?: string;
-  children?: FileSystemItem[];
-}
+export type TreeOperation = {
+  type: "delete" | "add" | "move";
+  addDeleteNodes?: FileTreeNode[]; // the added or deleted nodes for type "add" or "delete"
+  movedNodes?: Map<FileTreeNode, ParentNode>; // map of nodes to their original parents for type "move"
+};
 
-export interface FileNode {
-  id: string;
-  name: string;
-  type: "file" | "directory";
-  path: string;
-  parentPath: string;
-  level: number;
-  size: number;
-  created: Date;
-  modified: Date;
-  extension?: string;
-}
-
-export interface FileConflict {
+// Tree-based conflict types
+export interface TreeFileConflict {
   type: "conflict";
   message: string;
-  originalFile: FileNode;
-  existingFile: FileNode;
-  targetPath: string;
+  originalNode: FileTreeNode;
+  existingNode: FileTreeNode;
+  targetParent: FileTreeNode;
 }
 
 export type ConflictResolution = "replace" | "skip" | "cancel";
 
+// Enhanced tree-based conflict resolution
+export type TreeConflictResolution =
+  | "replace" // Replace existing file/directory
+  | "skip" // Skip this operation
+  | "cancel" // Cancel entire operation
+  | "rename" // Auto-rename with suffix
+  | "merge"; // Merge directories (files only)
+
 export interface MoveResult {
   cancelled: boolean;
-  moved: FileNode[];
+  moved: FileTreeNode[];
+}
+
+// Tree-based move result
+export interface TreeMoveResult {
+  cancelled: boolean;
+  moved: FileTreeNode[];
+  conflicts: TreeFileConflict[];
+  affectedPaths: string[];
 }
 
 export interface ProgressUpdate {
@@ -50,8 +48,37 @@ export interface ProgressUpdate {
   percentage: number;
 }
 
-export interface DirectoryStructure {
-  [path: string]: FileNode;
+// Tree-based file system structures
+
+// Result type for tree-based file generation
+export interface FileSystemTreeResult {
+  root: FileTreeNode;
+  totalNodes: number;
+  maxDepth: number;
+}
+
+// Tree traversal and operation types
+export interface TreeTraversalOptions {
+  startingRoot?: FileTreeNode; // Start traversal from this node instead of root
+  maxDepth?: number;
+  includeDirectories?: boolean;
+  includeFiles?: boolean;
+  sortFunction?: (a: FileTreeNode, b: FileTreeNode) => number;
+}
+
+export interface TreeOperationResult {
+  success: boolean;
+  affectedPaths: string[];
+  modifiedNodes: FileTreeNode[];
+  error?: string;
+}
+
+// Tree-based move operation types
+export interface TreeMoveOperation {
+  sourceNode: FileTreeNode;
+  targetParent: FileTreeNode;
+  newName?: string;
+  preserveStructure: boolean;
 }
 
 export interface FileTreeGenerationConfig {

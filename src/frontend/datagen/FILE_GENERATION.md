@@ -15,18 +15,40 @@ This system generates a consistent set of 10,000 files across 6 directory levels
 ### Basic Generation
 
 ```typescript
-import { generate10kFiles } from './fileSystemHelpers';
+import { generate10kFiles } from "./fileSystemHelpers";
 
-const result = generate10kFiles();
-console.log(`Generated ${result.totalItems} items`);
-console.log(`Directories: ${result.directories.length}`);
-console.log(`Files: ${result.files.length}`);
+const rootNode = await generate10kFiles();
+
+// Count all nodes in the tree
+function countNodes(root) {
+  const directories = [];
+  const files = [];
+
+  function traverse(node) {
+    if (node.type === "directory") {
+      directories.push(node);
+      for (const child of node.children.values()) {
+        traverse(child);
+      }
+    } else {
+      files.push(node);
+    }
+  }
+
+  traverse(root);
+  return { directories, files, totalItems: directories.length + files.length };
+}
+
+const { directories, files, totalItems } = countNodes(rootNode);
+console.log(`Generated ${totalItems} items`);
+console.log(`Directories: ${directories.length}`);
+console.log(`Files: ${files.length}`);
 ```
 
 ### Testing and Demonstration
 
 ```typescript
-import { testFileGeneration } from './fileSystemHelpers';
+import { testFileGeneration } from "./fileSystemHelpers";
 
 // Run comprehensive test with statistics
 testFileGeneration();
@@ -35,48 +57,66 @@ testFileGeneration();
 ### Searching and Filtering
 
 ```typescript
-import { getCityFiles, searchFiles, getFilesByExtension } from './fileSystemHelpers';
+import {
+  getCityFiles,
+  searchFiles,
+  getFilesByExtension,
+} from "./fileSystemHelpers";
 
 // Get all city files for weather API testing
-const cityFiles = getCityFiles();
+const cityFiles = await getCityFiles();
 
 // Search files by pattern
-const jsFiles = getFilesByExtension('js');
-const readmeFiles = searchFiles('readme');
+const jsFiles = await getFilesByExtension("js");
+const readmeFiles = await searchFiles("readme");
+
+// Or search directly on the tree
+const rootNode = await generate10kFiles();
+const allJsFiles = rootNode.search((node) => node.extension === "js");
+const allReadmeFiles = rootNode.search((node) => /readme/i.test(node.name));
 ```
 
-### Building Tree Structure
+### Working with Tree Structure
 
 ```typescript
-import { buildFileTree } from './fileSystemHelpers';
+import { generate10kFiles } from "./fileSystemHelpers";
 
-const result = generate10kFiles();
-const tree = buildFileTree([...result.directories, ...result.files]);
+const rootNode = await generate10kFiles();
 
-// tree is a Map<string, FileNode[]> where key is parent path
-const rootChildren = tree.get('/'); // Get root level items
+// Access direct children of root
+const rootChildren = Array.from(rootNode.children.values());
+
+// Search within the tree
+const jsFiles = rootNode.search((node) => node.extension === "js");
+
+// Get full path of any node
+const fullPath = someNode.getFullNodePath();
+
+// Check relationships
+const isDescendant = childNode.isDescendantOf(ancestorNode);
 ```
 
 ## File Types and Distribution
 
 The generator creates files with realistic distributions:
 
-| Category | Extensions | Weight | Size Range |
-|----------|------------|--------|------------|
-| Documents | txt, md | 20% | 1KB - 50KB |
-| Code | js, ts, tsx, jsx | 15% | 2KB - 100KB |
-| Data | json, xml, yaml | 10% | 512B - 25KB |
-| Images | jpg, png, gif | 15% | 50KB - 2MB |
-| Media | mp3, mp4 | 8% | 1MB - 50MB |
-| Office | pdf, doc, docx | 12% | 100KB - 5MB |
-| Web | html, css, scss | 8% | 1KB - 50KB |
-| Archives | zip, rar, 7z | 5% | 1MB - 100MB |
-| Executables | exe, dmg | 3% | 5MB - 500MB |
-| Special | city | 1% | 256B - 1KB |
+| Category    | Extensions       | Weight | Size Range  |
+| ----------- | ---------------- | ------ | ----------- |
+| Documents   | txt, md          | 20%    | 1KB - 50KB  |
+| Code        | js, ts, tsx, jsx | 15%    | 2KB - 100KB |
+| Data        | json, xml, yaml  | 10%    | 512B - 25KB |
+| Images      | jpg, png, gif    | 15%    | 50KB - 2MB  |
+| Media       | mp3, mp4         | 8%     | 1MB - 50MB  |
+| Office      | pdf, doc, docx   | 12%    | 100KB - 5MB |
+| Web         | html, css, scss  | 8%     | 1KB - 50KB  |
+| Archives    | zip, rar, 7z     | 5%     | 1MB - 100MB |
+| Executables | exe, dmg         | 3%     | 5MB - 500MB |
+| Special     | city             | 1%     | 256B - 1KB  |
 
 ## Directory Structure
 
 The generator creates directories with realistic names:
+
 - System folders: Documents, Pictures, Videos, Music, Downloads
 - Development folders: Projects, Code, Development, Components, Services
 - Content folders: Resources, Assets, Templates, Libraries
@@ -87,30 +127,33 @@ The generator creates directories with realistic names:
 ### Core Types
 
 ```typescript
-interface FileNode {
-  id: string;
+class FileTreeNode extends EventTarget {
+  children: Map<string, FileTreeNode> = new Map();
+  parent: FileTreeNode | null = null;
   name: string;
-  type: 'file' | 'directory';
-  path: string;
-  parentPath: string;
-  level: number;
-  size: number;
+  type: "file" | "directory";
+  size: number; // 0 for directories
   created: Date;
-  modified: Date;
   extension?: string;
-}
 
-interface FileSystemHelpers {
-  files: FileNode[];
-  directories: FileNode[];
-  totalItems: number;
-  structure: DirectoryStructure;
-}
+  constructor(
+    name: string,
+    type: "file" | "directory",
+    size: number = 0,
+    created: Date = new Date(),
+    extension?: string
+  );
 
-interface DirectoryStructure {
-  [path: string]: FileNode;
+  getFullNodePath(): string;
+  search(predicate: (node: FileTreeNode) => boolean): FileTreeNode[];
+  getChildren(): FileTreeNode[];
+  isDescendantOf(potentialAncestor: FileTreeNode): boolean;
 }
 ```
+
+### Return Types
+
+The `generate10kFiles()` function now returns a single `FileTreeNode` representing the root of the tree, rather than flat arrays. This provides a more natural tree structure with parent-child relationships.
 
 ## Performance
 
@@ -131,6 +174,7 @@ The system includes comprehensive testing utilities:
 ## Integration
 
 The file generation is integrated into the main App component with:
+
 - Generate button to create files
 - Console test button for detailed analysis
 - City files viewer for weather API testing
@@ -139,6 +183,7 @@ The file generation is integrated into the main App component with:
 ## Browser Console Access
 
 When running in the browser, these functions are available globally:
+
 - `testFileGeneration()` - Run full test suite
 - `getCityFiles()` - Get all .city files
 - `searchFiles(pattern)` - Search by name pattern

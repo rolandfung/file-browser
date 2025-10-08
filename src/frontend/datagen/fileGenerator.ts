@@ -1,9 +1,6 @@
-import {
-  FileNode,
-  DirectoryStructure,
-  FileExtension,
-  FILE_ICONS,
-} from "../types";
+import { FileTreeNode } from "../FileTreeNode";
+import { FileExtension, FILE_ICONS } from "../types";
+import { FileSystem } from "../FileSystem";
 
 /**
  * Seeded random number generator for consistent results
@@ -253,18 +250,6 @@ const GENERATION_CONFIG = {
   ] as const,
 };
 
-const rootDir: FileNode = {
-  id: "root",
-  name: "root",
-  type: "directory",
-  path: "/",
-  parentPath: "",
-  level: 0,
-  size: 0,
-  created: new Date(),
-  modified: new Date(),
-};
-
 /**
  * Progress callback type for file generation
  */
@@ -281,14 +266,14 @@ type ProgressCallback = (
 export async function generate10kFiles(
   onProgress?: ProgressCallback,
   enableArtificialDelay: boolean = false
-) {
+): Promise<FileTreeNode> {
   const rng = new SeededRandom(GENERATION_CONFIG.SEED);
-  const files: FileNode[] = [];
-  const directories: FileNode[] = [];
-  const structure: DirectoryStructure = {};
+  const rootDir = new FileTreeNode("root", "directory", 0, new Date());
+  const allDirectories: FileTreeNode[] = [rootDir];
 
-  directories.push(rootDir);
-  structure["/"] = rootDir;
+  // Track depth for each directory
+  const depthMap = new Map<FileTreeNode, number>();
+  depthMap.set(rootDir, 0);
 
   // Generate directory structure first (6 levels deep)
   let directoryCount = 1; // Start with root
@@ -303,8 +288,8 @@ export async function generate10kFiles(
   }
 
   for (let level = 1; level <= GENERATION_CONFIG.MAX_DEPTH; level++) {
-    const parentsAtPreviousLevel = directories.filter(
-      (d) => d.level === level - 1
+    const parentsAtPreviousLevel = allDirectories.filter(
+      (d) => depthMap.get(d) === level - 1
     );
     const targetDirsThisLevel = Math.min(
       maxDirectoriesPerLevel[level - 1],
@@ -317,23 +302,20 @@ export async function generate10kFiles(
       const parent = rng.choice(parentsAtPreviousLevel);
       const dirName = rng.choice(GENERATION_CONFIG.DIRECTORY_NAMES);
       const uniqueName = `${dirName}_${level}_${i}`;
-      const dirPath =
-        parent.path === "/" ? `/${uniqueName}` : `${parent.path}/${uniqueName}`;
 
-      const dir: FileNode = {
-        id: `dir_${directoryCount}`,
-        name: uniqueName,
-        type: "directory",
-        path: dirPath,
-        parentPath: parent.path,
-        level: level,
-        size: 0,
-        created: generateRandomDate(rng, "2025-01-01", "2025-09-01"),
-        modified: generateRandomDate(rng, "2025-09-01", "2025-10-03"),
-      };
+      const dir = new FileTreeNode(
+        uniqueName,
+        "directory",
+        0,
+        generateRandomDate(rng, "2025-01-01", "2025-09-01")
+      );
 
-      directories.push(dir);
-      structure[dirPath] = dir;
+      // Set up parent-child relationship
+      parent.children.set(dir.name, dir);
+      dir.parent = parent;
+
+      allDirectories.push(dir);
+      depthMap.set(dir, level);
       directoryCount++;
 
       // Update progress every 50 directories or on level completion
@@ -358,12 +340,12 @@ export async function generate10kFiles(
 
   // Generate files distributed across all directories
   let fileCount = 0;
-  const targetFiles = GENERATION_CONFIG.TOTAL_FILES - directories.length;
+  const targetFiles = GENERATION_CONFIG.TOTAL_FILES - allDirectories.length;
 
   onProgress?.(25, "Generating files...", `Target: ${targetFiles} files`);
 
   while (fileCount < targetFiles) {
-    const parentDir = rng.choice(directories);
+    const parentDir = rng.choice(allDirectories);
     const fileTypeGroup = selectWeightedFileType(rng);
     const extension = rng.choice(fileTypeGroup.extensions) as FileExtension;
 
@@ -381,29 +363,17 @@ export async function generate10kFiles(
       uniqueName = `${baseName}_${fileCount + 1}.${extension}`;
     }
 
-    const filePath =
-      parentDir.path === "/"
-        ? `/${uniqueName}`
-        : `${parentDir.path}/${uniqueName}`;
+    const file = new FileTreeNode(
+      uniqueName,
+      "file",
+      rng.nextInt(fileTypeGroup.sizeRange.min, fileTypeGroup.sizeRange.max),
+      generateRandomDate(rng, "2025-01-01", "2025-09-01")
+    );
 
-    const file: FileNode = {
-      id: `file_${fileCount}`,
-      name: uniqueName,
-      type: "file",
-      path: filePath,
-      parentPath: parentDir.path,
-      level: parentDir.level + 1,
-      size: rng.nextInt(
-        fileTypeGroup.sizeRange.min,
-        fileTypeGroup.sizeRange.max
-      ),
-      created: generateRandomDate(rng, "2025-01-01", "2025-09-01"),
-      modified: generateRandomDate(rng, "2025-09-01", "2025-10-03"),
-      extension: extension,
-    };
+    // Set up parent-child relationship
+    parentDir.children.set(file.name, file);
+    file.parent = parentDir;
 
-    files.push(file);
-    structure[filePath] = file;
     fileCount++;
 
     // Update progress every 500 files to avoid too many updates
@@ -425,17 +395,18 @@ export async function generate10kFiles(
   onProgress?.(90, "Finalizing file system structure...");
 
   console.log(
-    `Generated ${directories.length} directories and ${files.length} files (${
-      directories.length + files.length
+    `Generated ${allDirectories.length} directories and ${fileCount} files (${
+      allDirectories.length + fileCount
     } total)`
   );
 
-  return {
-    files,
-    directories,
-    totalItems: files.length + directories.length,
-    structure,
-  };
+  onProgress?.(
+    100,
+    "File generation complete!",
+    `${allDirectories.length + fileCount} items`
+  );
+
+  return rootDir;
 }
 
 /**
@@ -529,12 +500,15 @@ export function formatFileSize(bytes: number): string {
 
 /**
  * Helper function to build a tree structure from flat file list
+ * Note: This function is deprecated as FileTreeNode now handles tree structure internally
  */
-export function buildFileTree(nodes: FileNode[]): Map<string, FileNode[]> {
-  const tree = new Map<string, FileNode[]>();
+export function buildFileTree(
+  nodes: FileTreeNode[]
+): Map<string, FileTreeNode[]> {
+  const tree = new Map<string, FileTreeNode[]>();
 
   nodes.forEach((node) => {
-    const parentPath = node.parentPath;
+    const parentPath = node.parent?.getFullNodePath() || "/";
     if (!tree.has(parentPath)) {
       tree.set(parentPath, []);
     }
@@ -554,76 +528,8 @@ export function buildFileTree(nodes: FileNode[]): Map<string, FileNode[]> {
   return tree;
 }
 
-/**
- * Small set of static files for testing purposes
- */
-export const STATIC_TEST_FILES: FileNode[] = [
-  {
-    id: "file_1",
-    name: "readme.md",
-    type: "file",
-    path: "/readme.md",
-    parentPath: "/",
-    level: 1,
-    size: 1024,
-    created: new Date("2025-01-01"),
-    modified: new Date("2025-01-02"),
-    extension: "md",
-  },
-  {
-    id: "file_2",
-    name: "index.html",
-    type: "file",
-    path: "/index.html",
-    parentPath: "/",
-    level: 1,
-    size: 2048,
-    created: new Date("2025-01-01"),
-    modified: new Date("2025-01-02"),
-    extension: "html",
-  },
-  {
-    id: "dir_1",
-    name: "Documents",
-    type: "directory",
-    path: "/Documents",
-    parentPath: "/",
-    level: 1,
-    size: 0,
-    created: new Date("2025-01-01"),
-    modified: new Date("2025-01-02"),
-  },
-  {
-    id: "file_3",
-    name: "report.pdf",
-    type: "file",
-    path: "/Documents/report.pdf",
-    parentPath: "/Documents",
-    level: 2,
-    size: 5120,
-    created: new Date("2025-01-01"),
-    modified: new Date("2025-01-02"),
-    extension: "pdf",
-  },
-  {
-    id: "file_4",
-    name: "photo.jpg",
-    type: "file",
-    path: "/Documents/photo.jpg",
-    parentPath: "/Documents",
-    level: 2,
-    size: 3072,
-    created: new Date("2025-01-01"),
-    modified: new Date("2025-01-02"),
-    extension: "jpg",
-  },
-];
-
 export function generateEmptyFileSystem() {
-  return {
-    files: [] as FileNode[],
-    directories: [rootDir],
-    totalItems: 1,
-    structure: { "/": rootDir } as DirectoryStructure,
-  };
+  // generate root node
+  const rootDir = new FileTreeNode("root", "directory", 0, new Date());
+  return new FileSystem(rootDir);
 }

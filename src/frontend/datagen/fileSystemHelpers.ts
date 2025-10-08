@@ -7,7 +7,6 @@ export * from "./fileGenerationTest";
 export {
   generate10kFiles,
   generateEmptyFileSystem,
-  buildFileTree,
   getFileIcon,
   formatFileSize,
 } from "./fileGenerator";

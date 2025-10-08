@@ -3,14 +3,13 @@ import { setupTestData } from "./test-helpers";
 
 test("Selected file(s) summary", async ({ page }) => {
   await setupTestData(page);
-  await page.getByRole("listitem", { name: "audio_2726.png" }).click();
-  //   await page.getByText("1 item selected: /audio_2726.").click();
-  expect(
-    await page.getByText("1 item selected: /audio_2726.").isVisible()
-  ).toBe(true);
+  await page.getByRole("listitem", { name: "app_7857.js" }).click();
+  expect(await page.getByText("1 item selected: app_7857.js").isVisible()).toBe(
+    true
+  );
 
-  await page.getByRole("listitem", { name: "config_8208.ts" }).click();
-  await page.getByRole("listitem", { name: "data_1349.json" }).click({
+  await page.getByRole("listitem", { name: "clip_1329.gif" }).click();
+  await page.getByRole("listitem", { name: "controller_5316.tsx" }).click({
     modifiers: ["Shift"],
   });
   // expect to see "3 items selected"
