@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from "react";
-import { FileNode } from "../types";
+import { FileTreeNode } from "../FileTreeNode";
 
 interface UseFileGenerationWorkerResult {
   generateFiles: (enableDelay?: boolean) => void;
@@ -19,10 +19,7 @@ interface WorkerProgressMessage {
 
 interface WorkerCompleteMessage {
   type: "COMPLETE";
-  payload: {
-    files: FileNode[];
-    directories: FileNode[];
-  };
+  payload: any; // Serialized FileTreeNode data
 }
 
 interface WorkerErrorMessage {
@@ -38,7 +35,7 @@ type WorkerResponseMessage =
   | WorkerErrorMessage;
 
 export const useFileGenerationWorker = (
-  onFilesGenerated: (files: FileNode[], directories: FileNode[]) => void
+  onFilesGenerated: (root: FileTreeNode) => void
 ): UseFileGenerationWorkerResult => {
   const workerRef = useRef<Worker | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -48,13 +45,27 @@ export const useFileGenerationWorker = (
 
   // Initialize worker
   useEffect(() => {
+    // Terminate any existing worker
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+    }
+
     // Create the worker
-    workerRef.current = new Worker("/fileGenerationWorker.js");
+    try {
+      workerRef.current = new Worker("/fileGenerationWorker.js");
+    } catch (error) {
+      setError("Failed to create worker: " + (error as Error).message);
+      setStatusMessage("Worker initialization failed");
+      return () => {}; // Return cleanup function for error case
+    }
+
+    if (!workerRef.current) {
+      return () => {}; // Return cleanup function if worker creation failed
+    }
 
     // Handle worker messages
-    workerRef.current.onmessage = (
-      event: MessageEvent<WorkerResponseMessage>
-    ) => {
+    const messageHandler = (event: MessageEvent<WorkerResponseMessage>) => {
       const { type, payload } = event.data;
 
       switch (type) {
@@ -64,10 +75,45 @@ export const useFileGenerationWorker = (
           break;
 
         case "COMPLETE":
+          // Reconstruct FileTreeNode from serialized data
+          const deserializeNode = (data: any): FileTreeNode => {
+            const node = new FileTreeNode(
+              data.name,
+              data.type,
+              data.size,
+              new Date(data.created)
+            );
+
+            // Reconstruct children
+            if (data.children && Array.isArray(data.children)) {
+              for (const [childName, childData] of data.children) {
+                const childNode = deserializeNode(childData);
+                childNode.parent = node;
+                node.children.set(childName, childNode);
+              }
+            }
+
+            return node;
+          };
+
+          let reconstructedRoot;
+          try {
+            reconstructedRoot = deserializeNode(payload);
+          } catch (error) {
+            console.error("Error during deserialization:", error);
+            setIsGenerating(false);
+            setError(
+              "Failed to deserialize file structure: " +
+                (error as Error).message
+            );
+            setStatusMessage("Deserialization failed");
+            return;
+          }
+
           setIsGenerating(false);
           setProgress(100);
           setStatusMessage("Files generated successfully!");
-          onFilesGenerated(payload.files, payload.directories);
+          onFilesGenerated(reconstructedRoot);
 
           // Reset after a delay
           setTimeout(() => {
@@ -80,20 +126,20 @@ export const useFileGenerationWorker = (
           setIsGenerating(false);
           setError(payload.message);
           setStatusMessage("Generation failed");
-          console.error("Worker error:", payload);
           break;
 
         default:
-          console.warn("Unknown worker message type:", type);
+          break;
       }
     };
+
+    workerRef.current.onmessage = messageHandler;
 
     // Handle worker errors
     workerRef.current.onerror = (error) => {
       setIsGenerating(false);
       setError("Worker failed to load");
       setStatusMessage("Worker initialization failed");
-      console.error("Worker error:", error);
     };
 
     // Cleanup on unmount

@@ -2,6 +2,7 @@
 // This worker runs the heavy file generation in a separate thread
 
 // Import the file generation function
+import { FileTreeNode } from "../FileTreeNode";
 import { generate10kFiles } from "../datagen/fileSystemHelpers";
 
 // Define message types for type safety
@@ -20,10 +21,7 @@ interface ProgressMessage {
 
 interface CompleteMessage {
   type: "COMPLETE";
-  payload: {
-    files: any[];
-    directories: any[];
-  };
+  payload: any; // Serialized FileTreeNode data
 }
 
 interface ErrorMessage {
@@ -42,6 +40,10 @@ self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
   try {
     switch (type) {
       case "GENERATE_FILES": {
+        console.log(
+          "Starting file generation with delay:",
+          enableArtificialDelay
+        );
         // Create a progress callback that sends updates to main thread
         const onProgress = (
           progress: number,
@@ -66,13 +68,25 @@ self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
           enableArtificialDelay
         );
 
+        // Convert FileTreeNode to a serializable plain object
+        const serializeNode = (node: FileTreeNode): any => {
+          return {
+            name: node.name,
+            type: node.type,
+            size: node.size,
+            created: node.created,
+            children: Array.from(node.children.entries()).map(
+              ([name, child]) => [name, serializeNode(child)]
+            ),
+          };
+        };
+
+        const serializedResult = serializeNode(result);
+
         // Send the completed result
         self.postMessage({
           type: "COMPLETE",
-          payload: {
-            files: result.files,
-            directories: result.directories,
-          },
+          payload: serializedResult,
         } as CompleteMessage);
 
         break;

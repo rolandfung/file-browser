@@ -1,5 +1,6 @@
 import { FileSystem } from "../FileSystem";
-import { FileNode } from "../types";
+import { FileTreeNode } from "../FileTreeNode";
+import { TreeOperation } from "../types";
 import * as React from "react";
 import { FileTree } from "./FileTree";
 import { FileSystemViewToolbar } from "./FileSystemViewToolbar";
@@ -11,46 +12,123 @@ import { useMoveDialogContext } from "./MoveDialog";
 
 interface FileSystemViewProps {
   fileSystem: FileSystem;
-  contextPath?: string;
   showCloseIcon?: boolean;
   onClose?: () => void;
 }
 
 export function FileSystemView({
-  fileSystem,
-  contextPath: contextPathProp = "/",
+  fileSystem: fsProp,
   showCloseIcon = false,
   onClose,
 }: FileSystemViewProps) {
   /**
-   * Subscribe to fileSystem changes and force re-render
+   * Navigation state and handlers
    */
-  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
-  React.useEffect(() => {
-    const handleFileSystemChange = (event: CustomEvent<string[]>) => {
-      // if contextPath includes any of the changed paths, re-render
-      if (event.detail.some((p) => p.startsWith(contextPathProp))) {
-        forceUpdate();
+
+  const [fs, setFs] = React.useState<FileSystem>(fsProp);
+  const previousFsPropRef = React.useRef<FileSystem>(fsProp);
+
+  const [history, setHistory] = React.useState<FileTreeNode[]>([fs.root]);
+  const contextNode = history[history.length - 1];
+
+  // _forceRender is used to re-render when the fileSystem emits a change event
+  const [, _forceRender] = React.useReducer((x) => x + 1, 0);
+  // forceUpdate function detects if any of the affected nodes are in the current context path
+  const forceUpdate = React.useCallback(
+    (event: CustomEvent<TreeOperation>) => {
+      console.debug("FileSystemView detected TreeOperation:", event.detail);
+      // if any of the affected nodes are in the contextNode's path, re-render. Could
+      // go extra crazy and check if the an affected node is actually visible (e.g.
+      // in an expanded directory), but this is probably good enough for now
+      if (
+        Array.from(event.detail.addDeleteNodes ?? []).some(
+          (n) =>
+            n.parent.isDescendantOf(contextNode) || n.parent === contextNode
+        ) ||
+        Array.from(event.detail.movedNodes ?? []).some(
+          ([n, origParent]) =>
+            // if moved node is in context path
+            n.parent.isDescendantOf(contextNode) ||
+            n.parent === contextNode ||
+            // or if original parent is in context path
+            origParent.isDescendantOf(contextNode) ||
+            origParent === contextNode
+        )
+      ) {
+        _forceRender();
       }
-    };
-    fileSystem.addEventListener("change", handleFileSystemChange);
+    },
+    [contextNode]
+  );
+
+  React.useEffect(() => {
+    // detect if the fsProp has changed, or if the forceUpdate function has changed due to a change in contextNode
+    const fsPropChanged = previousFsPropRef.current !== fsProp;
+    previousFsPropRef.current = fsProp;
+
+    setFs((prevFs) => {
+      prevFs.removeEventListener("change", forceUpdate);
+      fsProp.addEventListener("change", forceUpdate);
+      // reset history to root of new fs, only if the fs has changed, but not if
+      // only the forceUpdate function has changed solely due to a
+      // navigation/contextNode change
+      if (fsPropChanged) {
+        setHistory([fsProp.root]);
+      }
+      return fsProp;
+    });
+    // cleanup function to remove listener
     return () => {
-      fileSystem.removeEventListener("change", handleFileSystemChange);
+      fsProp.removeEventListener("change", forceUpdate);
     };
-  }, [fileSystem]);
+  }, [fsProp, forceUpdate]);
+
+  const handleDrillDown = (node: FileTreeNode) => {
+    setHistory((prevHistory) => [...prevHistory, node]);
+    // unselect all
+    setState((prevState) => ({
+      selectedNodes: new Set<FileTreeNode>(),
+      expandedNodes: prevState.expandedNodes,
+      lastSelectedNode: undefined,
+    }));
+  };
+
+  const handleNavBack = () => {
+    if (history.length <= 1) return; // already at root
+    setHistory((prevHistory) => prevHistory.slice(0, -1));
+    unselectAll();
+  };
+
+  const handleNavUp = () => {
+    const lastNode = history[history.length - 1];
+    if (lastNode.getFullNodePath() === "/") return; // already at root
+    setHistory((prevHistory) => [
+      ...prevHistory,
+      lastNode.parent as FileTreeNode,
+    ]);
+    unselectAll();
+  };
+
+  const handleCrumbNav = (crumbNode: FileTreeNode) => {
+    setHistory((prevHistory) => [...prevHistory, crumbNode]);
+    unselectAll();
+  };
 
   /**
    * Move dialog state and handlers
    */
   const { startMove } = useMoveDialogContext();
-  // const handleMoveDialogOpen = () => startMove([], "/");
-  const handleFileMove = async (droppedPaths: string[], targetPath: string) => {
-    startMove(droppedPaths, targetPath);
+  // const handleMoveDialogOpen = () => {}
+  const handleFileMove = async (
+    droppedNodes: FileTreeNode[],
+    targetNode: FileTreeNode
+  ) => {
+    startMove(droppedNodes, targetNode);
     // clear selection
     setState((prevState) => ({
-      selectedFilePaths: new Set<string>(),
-      expandedDirs: prevState.expandedDirs,
-      lastSelectedPath: undefined, // for determining beginning of range selection
+      selectedNodes: new Set<FileTreeNode>(),
+      expandedNodes: prevState.expandedNodes,
+      lastSelectedNode: undefined, // for determining beginning of range selection
     }));
   };
 
@@ -88,7 +166,7 @@ export function FileSystemView({
     mode: "name" | "type";
     asc: boolean;
   }>({ mode: "type", asc: true });
-  const sortingFunc = (a: FileNode, b: FileNode): number => {
+  const sortingFunc = (a: FileTreeNode, b: FileTreeNode): number => {
     // if sortMode is "type", sort by type then name
     if (sort.mode === "type") {
       const typeCompare = a.type.localeCompare(b.type);
@@ -109,59 +187,58 @@ export function FileSystemView({
    * Selection and expansion state and handlers
    */
   const [state, setState] = React.useState<{
-    selectedFilePaths: Set<string>;
-    expandedDirs: Set<string>;
-    lastSelectedPath?: string;
+    selectedNodes: Set<FileTreeNode>;
+    expandedNodes: Set<FileTreeNode>;
+    lastSelectedNode?: FileTreeNode;
   }>({
-    selectedFilePaths: new Set<string>(),
-    expandedDirs: new Set<string>(),
-    lastSelectedPath: undefined,
+    selectedNodes: new Set<FileTreeNode>(),
+    expandedNodes: new Set<FileTreeNode>(),
+    lastSelectedNode: undefined,
   });
 
   const unselectAll = () => {
     setState((prevState) => ({
-      selectedFilePaths: new Set<string>(),
-      expandedDirs: prevState.expandedDirs,
-      lastSelectedPath: undefined,
+      selectedNodes: new Set<FileTreeNode>(),
+      expandedNodes: prevState.expandedNodes,
+      lastSelectedNode: undefined,
     }));
   };
 
   const handleCollapseAll = () => {
     setState((prevState) => ({
-      selectedFilePaths: prevState.selectedFilePaths,
-      expandedDirs: new Set<string>(),
-      lastSelectedPath: prevState.lastSelectedPath,
+      selectedNodes: prevState.selectedNodes,
+      expandedNodes: new Set<FileTreeNode>(),
+      lastSelectedNode: prevState.lastSelectedNode,
     }));
   };
 
   // user clicked on expand/collapse icon of a directory
-  const handleExpandleToggle = (node: FileNode) => {
-    const path = node.path;
+  const handleExpandleToggle = (node: FileTreeNode) => {
     setState(
       ({
-        selectedFilePaths: prevSelectedFilePaths,
-        expandedDirs: prevExpandedDirs,
-        lastSelectedPath: prevLastSelectedPath,
+        selectedNodes: prevSelectedNodes,
+        expandedNodes: prevExpandedNodes,
+        lastSelectedNode: prevLastSelectedNode,
       }) => {
-        const newExpandedDirs = new Set(prevExpandedDirs);
-        const newSelectedFilePaths = new Set(prevSelectedFilePaths);
-        if (newExpandedDirs.has(path)) {
-          // collapsing directory
-          newExpandedDirs.delete(path);
+        const newExpandedNodes = new Set(prevExpandedNodes);
+        const newSelectedNodes = new Set(prevSelectedNodes);
+        // collapsing directory
+        if (newExpandedNodes.has(node)) {
+          newExpandedNodes.delete(node);
           // unselect any files within directory being collapsed
-          for (let filePath of newSelectedFilePaths) {
-            if (filePath.startsWith(path + "/")) {
-              newSelectedFilePaths.delete(filePath);
+          for (let selectedNode of newSelectedNodes) {
+            if (selectedNode.isDescendantOf(node)) {
+              newSelectedNodes.delete(selectedNode);
             }
           }
         } else {
           // expanding directory
-          newExpandedDirs.add(path);
+          newExpandedNodes.add(node);
         }
         return {
-          selectedFilePaths: newSelectedFilePaths,
-          expandedDirs: newExpandedDirs,
-          lastSelectedPath: prevLastSelectedPath,
+          selectedNodes: newSelectedNodes,
+          expandedNodes: newExpandedNodes,
+          lastSelectedNode: prevLastSelectedNode,
         };
       }
     );
@@ -170,39 +247,37 @@ export function FileSystemView({
   // user clicked on file/folder name to select/unselect
   const handleItemSelect = (
     event: React.MouseEvent<HTMLElement>,
-    node: FileNode,
-    sortingFunc: (a: FileNode, b: FileNode) => number
+    node: FileTreeNode,
+    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
   ) => {
     setState(
       ({
-        selectedFilePaths: prevSelectedFilePaths,
-        expandedDirs: prevExpandedDirs,
-        lastSelectedPath: prevLastSelectedPath,
+        selectedNodes: prevSelectedNodes,
+        expandedNodes: prevExpandedNodes,
+        lastSelectedNode: prevLastSelectedNode,
       }) => {
-        const path = node.path;
-        const newSelectedFilePaths = new Set(prevSelectedFilePaths);
+        const newSelectedNodes = new Set(prevSelectedNodes);
 
         // Range selection with Shift+click
-        const isRangeSelect = event.shiftKey && prevLastSelectedPath;
+        const isRangeSelect = event.shiftKey && prevLastSelectedNode;
         // Multi-select with Ctrl/Cmd+click
         const isMultiSelect = event.ctrlKey || event.metaKey;
 
         if (isRangeSelect) {
           // Get all items in current view (flattened)
           const allItems = isSearchResultsMode
-            ? fileSystem.searchNodesInPath(searchValue, contextPath)
-            : getAllVisibleItems(
-                fileSystem,
-                contextPath,
-                prevExpandedDirs,
-                sortingFunc
-              );
+            ? contextNode
+                .search((node) => {
+                  return !!node.name.match(new RegExp(searchValue, "i"));
+                })
+                .sort(sortingFunc)
+            : getAllVisibleItems(contextNode, prevExpandedNodes, sortingFunc);
 
           // Find indices of start and end items
           const startIndex = allItems.findIndex(
-            (item) => item.path === prevLastSelectedPath
+            (item) => item === prevLastSelectedNode
           );
-          const endIndex = allItems.findIndex((item) => item.path === path);
+          const endIndex = allItems.findIndex((item) => item === node);
 
           if (startIndex !== -1 && endIndex !== -1) {
             // Select range between start and end (inclusive)
@@ -210,123 +285,92 @@ export function FileSystemView({
             const rangeEnd = Math.max(startIndex, endIndex);
 
             for (let i = rangeStart; i <= rangeEnd; i++) {
-              newSelectedFilePaths.add(allItems[i].path);
+              newSelectedNodes.add(allItems[i]);
             }
           }
         } else if (isMultiSelect) {
-          if (newSelectedFilePaths.has(path)) {
+          if (newSelectedNodes.has(node)) {
             // unselecting
-            newSelectedFilePaths.delete(path);
+            newSelectedNodes.delete(node);
           } else {
             // selecting
-            newSelectedFilePaths.add(path);
+            newSelectedNodes.add(node);
           }
         } else {
           // single select
-          if (
-            newSelectedFilePaths.has(path) &&
-            newSelectedFilePaths.size === 1
-          ) {
+          if (newSelectedNodes.has(node) && newSelectedNodes.size === 1) {
             // unselecting when it's the only selected item
-            newSelectedFilePaths.clear();
+            newSelectedNodes.clear();
           } else {
             // selecting (clear others first)
-            newSelectedFilePaths.clear();
-            newSelectedFilePaths.add(path);
+            newSelectedNodes.clear();
+            newSelectedNodes.add(node);
           }
         }
 
         return {
-          selectedFilePaths: newSelectedFilePaths,
-          expandedDirs: prevExpandedDirs,
-          lastSelectedPath: newSelectedFilePaths.size > 0 ? path : undefined,
+          selectedNodes: newSelectedNodes,
+          expandedNodes: prevExpandedNodes,
+          lastSelectedNode: newSelectedNodes.size > 0 ? node : undefined,
         };
       }
     );
   };
 
   const handleExpandAll = () => {
-    const allDirs = fileSystem.nodes
-      .filter((f) => f.type === "directory")
-      .map((d) => d.path);
+    const allDirs = fs.getAllDirectories();
     setState((prevState) => ({
-      selectedFilePaths: prevState.selectedFilePaths,
-      expandedDirs: new Set(allDirs),
-      lastSelectedPath: prevState.lastSelectedPath,
+      selectedNodes: prevState.selectedNodes,
+      expandedNodes: new Set(allDirs),
+      lastSelectedNode: prevState.lastSelectedNode,
     }));
   };
 
   const exactlyOneOrZeroDirSelected =
-    state.selectedFilePaths.size === 0 ||
-    (state.selectedFilePaths.size === 1 &&
-      [...state.selectedFilePaths][0].endsWith("/"));
+    state.selectedNodes.size === 0 ||
+    (state.selectedNodes.size === 1 &&
+      [...state.selectedNodes][0].type === "directory");
 
-  const handleCreateNode = (partialNode: Partial<FileNode>) => {
+  const handleCreateNode = (newNode: FileTreeNode) => {
     if (!exactlyOneOrZeroDirSelected) return;
     // if one directory selected, create in that node, if none selected, create in current context path
-    const parentPath =
-      state.selectedFilePaths.size === 1
-        ? [...state.selectedFilePaths][0]
-        : contextPath;
+    const parentNode =
+      state.selectedNodes.size === 1
+        ? [...state.selectedNodes][0]
+        : contextNode;
     // the new node's path is parentPath + "/" + name, unless parentPath is "/", then it's just "/" + name
-    const path =
-      parentPath === "/"
-        ? "/" + (partialNode.name as string)
-        : parentPath + "/" + (partialNode.name as string);
-    fileSystem.createFileOrDirectory({ ...partialNode, path, parentPath });
+
+    fs.addNode(newNode, parentNode);
   };
 
-  /**
-   * Navigation state and handlers
-   */
-  const [history, setHistory] = React.useState<string[]>([contextPathProp]);
-
-  const handleDrillDown = (node: FileNode) => {
-    const newContextPath = node.path;
-    setHistory((prevHistory) => [...prevHistory, newContextPath]);
-    // unselect all
-    setState((prevState) => ({
-      selectedFilePaths: new Set<string>(),
-      expandedDirs: prevState.expandedDirs,
-      lastSelectedPath: undefined,
-    }));
-  };
-
-  const handleNavBack = () => {
-    if (history.length <= 1) return; // already at root
-    setHistory((prevHistory) => prevHistory.slice(0, -1));
-    unselectAll();
-  };
-
-  const handleNavUp = () => {
-    const contextPath = history[history.length - 1];
-    if (contextPath === "/" || contextPath === "") return; // already at root
-    const parts = contextPath.split("/").filter((p) => p.length > 0);
-    parts.pop(); // remove last part
-    const newContextPath = "/" + parts.join("/");
-    setHistory((prevHistory) => [...prevHistory, newContextPath]);
-    unselectAll();
-  };
-
-  const handleCrumbNav = (event: React.MouseEvent) => {
-    const targetPath = (event.target as HTMLElement).dataset.path;
-    if (!targetPath) return;
-    setHistory((prevHistory) => [...prevHistory, targetPath]);
-    unselectAll();
+  const handleDelete = () => {
+    if (actionDialogState.actionType === "delete") {
+      // perform delete action
+      fs.deleteNodes(Array.from(state.selectedNodes));
+      const newExpandedDirs = new Set<FileTreeNode>(state.expandedNodes);
+      // also remove any expanded dirs that were deleted
+      for (let n of state.selectedNodes) {
+        newExpandedDirs.delete(n);
+      }
+      setState((prevState) => ({
+        ...prevState,
+        selectedNodes: new Set<FileTreeNode>(),
+        expandedNodes: newExpandedDirs,
+      }));
+      setActionDialogState({ ...actionDialogState, visible: false });
+    }
   };
 
   /**
    * City download weather handler
    */
   const handleDownloadCity = () => {
-    if (state.selectedFilePaths.size !== 1) return;
-    const selectedPath = [...state.selectedFilePaths][0];
-    const node = fileSystem.getNode(selectedPath);
-    if (!node || !node.name.endsWith(".city")) return;
+    if (state.selectedNodes.size !== 1) return;
+    const node = [...state.selectedNodes][0];
+    if (!node.name.endsWith(".city")) return;
 
     // extract city and country from filename, give the format new_york__us.city
-    const [city, country] = node.name.replace(".city", "").split("__");
-    // download json from https://api.openweathermap.org/data/2.5/weather?q={city name},{country code}&appid={API key}
+    const [city, country] = node.name.replace(".city", "").split("__"); // download json from https://api.openweathermap.org/data/2.5/weather?q={city name},{country code}&appid={API key}
     const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city},${country}&appid=${process.env.OPEN_WEATHER_API_KEY}`;
     fetch(apiUrl)
       .then((response) => {
@@ -359,49 +403,46 @@ export function FileSystemView({
 
   // Helper function to get all visible items in current view (for range selection)
   const getAllVisibleItems = (
-    fs: FileSystem,
-    path: string,
-    expanded: Set<string>,
-    sortingFunc: (a: FileNode, b: FileNode) => number
-  ): FileNode[] => {
-    const flattenNodes = (nodes: FileNode[]): FileNode[] => {
-      const result: FileNode[] = [];
+    node: FileTreeNode,
+    expanded: Set<FileTreeNode>,
+    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
+  ): FileTreeNode[] => {
+    const flattenNodes = (nodes: FileTreeNode[]): FileTreeNode[] => {
+      const result: FileTreeNode[] = [];
       for (const node of nodes) {
         result.push(node);
-        if (node.type === "directory" && expanded.has(node.path)) {
-          const children = fs.getChildNodes(node.path).sort(sortingFunc);
+        if (node.type === "directory" && expanded.has(node)) {
+          const children = node.getChildren().sort(sortingFunc);
           result.push(...flattenNodes(children));
         }
       }
       return result;
     };
-    return flattenNodes(fs.getChildNodes(path)).sort(sortingFunc);
+    return flattenNodes(node.getChildren()).sort(sortingFunc);
   };
 
-  const contextPath = history[history.length - 1];
+  const canNavUp = contextNode.getFullNodePath() !== "/";
   const canNavBack = history.length > 1;
-  const canNavUp = contextPath !== "/" && contextPath !== "";
   const isSearchMode = searchValue.trim().length > 0;
   const isSearchResultsMode = searchValue.trim().length > 0;
   const oneCitySelected =
-    state.selectedFilePaths.size === 1 &&
-    [...state.selectedFilePaths][0].endsWith(".city");
+    state.selectedNodes.size === 1 &&
+    [...state.selectedNodes][0].name.endsWith(".city");
 
-  // reset selection/expansion/search state if fileSystem or contextPathProp changes
+  // reset selection/expansion/search state if fileSystem changes
   React.useEffect(() => {
-    setHistory([contextPathProp]);
     setSearchValue("");
     setState({
-      selectedFilePaths: new Set<string>(),
-      expandedDirs: new Set(),
-      lastSelectedPath: undefined,
+      selectedNodes: new Set<FileTreeNode>(),
+      expandedNodes: new Set<FileTreeNode>(),
+      lastSelectedNode: undefined,
     });
     setActionDialogState({
       type: "file",
       actionType: "create",
       visible: false,
     });
-  }, [fileSystem, contextPathProp]);
+  }, [fs]);
 
   return (
     <div
@@ -421,7 +462,7 @@ export function FileSystemView({
         <div style={{ flexGrow: 1 }}>
           <Breadcrumbs
             onFileDrop={startMove}
-            contextPath={contextPath}
+            contextNode={contextNode}
             onCrumbClick={handleCrumbNav}
           />
         </div>
@@ -452,12 +493,13 @@ export function FileSystemView({
         <FileSystemViewToolbar
           sort={sort}
           setSort={setSortMode}
-          // onMoveSelectedButton={handleMoveDialogOpen} add back when we have a directory navigator
+          // add back when we have a directory navigator
+          // onMoveSelectedButton={handleMoveDialogOpen}
           disableCreate={isSearchMode}
           disableNav={isSearchMode}
           disableExpansion={isSearchMode}
           disableDownloadCity={!oneCitySelected}
-          selectedFilePaths={state.selectedFilePaths}
+          selectedNodes={Array.from(state.selectedNodes)}
           onDownloadCityButton={handleDownloadCity}
           onCreateFileButton={handleCreateFileDiagOpen}
           onCreateDirectoryButton={handleCreateDirDiagOpen}
@@ -477,50 +519,23 @@ export function FileSystemView({
       <FileTree
         sortingFunc={sortingFunc}
         searchValue={searchValue}
-        expandedDirs={state.expandedDirs}
-        selectedFilePaths={state.selectedFilePaths}
+        expandedDirs={state.expandedNodes}
+        selectedNodes={state.selectedNodes}
         handleExpandleToggle={handleExpandleToggle}
         handleItemSelect={handleItemSelect}
         handleOutsideClick={unselectAll}
         onDrillDown={handleDrillDown}
-        contextPath={contextPath}
-        fileSystem={fileSystem}
+        contextNode={contextNode}
         onFileDrop={handleFileMove}
       />
-      {!isSearchMode && state.selectedFilePaths.size > 0 ? (
-        <SelectionInfo
-          selectedFilePaths={state.selectedFilePaths}
-          fileSystem={fileSystem}
-        />
+      {!isSearchMode && state.selectedNodes.size > 0 ? (
+        <SelectionInfo selectedNodes={Array.from(state.selectedNodes)} />
       ) : null}
       <ActionDialog
         open={actionDialogState.visible}
         actionType={actionDialogState.actionType}
-        selection={Array.from(state.selectedFilePaths)}
-        onSelectionAction={(partialNode?: Partial<FileNode>) => {
-          if (actionDialogState.actionType === "delete") {
-            // perform delete action
-            fileSystem.removeFiles(Array.from(state.selectedFilePaths));
-            const newExpandedDirs = new Set<string>(state.expandedDirs);
-            // also remove any expanded dirs that were deleted
-            for (let path of state.selectedFilePaths) {
-              for (let dirPath of newExpandedDirs) {
-                if (dirPath.startsWith(path + "/")) {
-                  newExpandedDirs.delete(dirPath);
-                }
-              }
-            }
-            setState((prevState) => ({
-              selectedFilePaths: new Set<string>(),
-              expandedDirs: newExpandedDirs,
-            }));
-            setActionDialogState({ ...actionDialogState, visible: false });
-          } else if (partialNode && actionDialogState.actionType === "create") {
-            // perform create action
-            fileSystem.createFileOrDirectory(partialNode);
-            setActionDialogState({ ...actionDialogState, visible: false });
-          }
-        }}
+        selection={Array.from(state.selectedNodes)}
+        onDelete={handleDelete}
         createType={actionDialogState.type}
         onCreate={handleCreateNode}
         onCancel={handleCancelActionDialog}

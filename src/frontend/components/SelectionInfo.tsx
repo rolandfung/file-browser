@@ -1,35 +1,30 @@
 import * as React from "react";
-// import { FileNode } from "../types";
-import { FileSystem } from "../FileSystem";
+import { FileTreeNode } from "../FileTreeNode";
 
 export function SelectionInfo({
-  selectedFilePaths,
-  fileSystem,
+  selectedNodes,
 }: {
-  selectedFilePaths: Set<string>;
-  fileSystem: FileSystem;
+  selectedNodes: FileTreeNode[];
 }) {
-  if (selectedFilePaths.size === 0) {
+  if (selectedNodes.length === 0) {
     return (
       <div style={{ marginTop: 10 }}>No files or directories selected</div>
     );
-  } else if (selectedFilePaths.size === 1) {
-    const path = Array.from(selectedFilePaths)[0];
-    const node = fileSystem.getNode(path);
+  } else if (selectedNodes.length === 1) {
+    const node = selectedNodes[0];
     return (
       <div style={{ marginTop: 10 }}>
-        1 item selected: {path} ({node?.type}), size: {node?.size || 0} bytes
+        1 item selected: {node.name} ({node.type}), size: {node.size || 0} bytes
       </div>
     );
   } else {
-    const nodeList = fileSystem.getNodes(Array.from(selectedFilePaths));
-    const totalSize = nodeList.reduce(
+    const totalSize = selectedNodes.reduce(
       (acc, node) => acc + (node?.size || 0),
       0
     );
     return (
       <div aria-label="Selection Info" style={{ marginTop: 10 }}>
-        {selectedFilePaths.size} items selected, total size: {totalSize} bytes
+        {selectedNodes.length} items selected, total size: {totalSize} bytes
       </div>
     );
   }

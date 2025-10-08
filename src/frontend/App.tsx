@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
 
-import { FileNode } from "./types";
+import { FileTreeNode } from "./FileTreeNode";
 import { generateEmptyFileSystem } from "./datagen/fileSystemHelpers";
 import { MultiFileSystemView } from "./components/MultiFileSystemView";
 import { useFileGenerationWorker } from "./hooks/useFileGenerationWorker";
@@ -12,32 +12,21 @@ import { useFileGenerationWorker } from "./hooks/useFileGenerationWorker";
 interface AppProps {}
 
 interface AppState {
-  fsNodes: FileNode[];
+  fs: FileSystem;
 }
 
 // Functional component to use hooks for worker
 const AppContent: React.FC = () => {
-  const [fsNodes, setFsNodes] = React.useState<FileNode[]>(() => {
-    const { directories, files } = generateEmptyFileSystem();
-    return [...files, ...directories];
-  });
-
-  // Memoize the FileSystem instance to prevent unnecessary recreations
-  // while files are being generated.
-  const fileSystem = React.useMemo(() => new FileSystem(fsNodes), [fsNodes]);
-
-  const handleFilesGenerated = React.useCallback(
-    (files: FileNode[], directories: FileNode[]) => {
-      setFsNodes([...files, ...directories]);
-    },
-    []
-  );
+  const [fs, setFs] = React.useState<FileSystem>(generateEmptyFileSystem());
+  const onFilesGenerated = React.useCallback((root: FileTreeNode) => {
+    setFs(new FileSystem(root));
+  }, []);
 
   const [enableArtificialDelay, setEnableArtificialDelay] =
     React.useState(false);
 
   const { generateFiles, isGenerating, progress, statusMessage, error } =
-    useFileGenerationWorker(handleFilesGenerated);
+    useFileGenerationWorker(onFilesGenerated);
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -130,7 +119,7 @@ const AppContent: React.FC = () => {
       </div>
       <hr style={{ marginBottom: "20px" }} />
 
-      <MultiFileSystemView fileSystem={fileSystem} />
+      <MultiFileSystemView fileSystem={fs} />
     </DndProvider>
   );
 };

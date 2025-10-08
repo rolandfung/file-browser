@@ -1,362 +1,289 @@
-type Action = {
-  type: "create" | "delete" | "move";
-  files: FileNode[];
-  originalPaths?: { [newPath: string]: string }; // for move actions, map of newPath to originalPath
-};
-
 import {
-  FileNode,
-  FileConflict,
-  ConflictResolution,
-  MoveResult,
+  TreeFileConflict,
+  TreeConflictResolution,
   ProgressUpdate,
+  TreeOperation,
 } from "./types";
+import { FileTreeNode } from "./FileTreeNode";
+
 // FileSystem separates out the underlying file manipulation logic from the UI logic,
 // so that we can easily have multiple views on the same file system. View components
 // can focus on handling navigation, selection, and action logic.
-
-// File system structure and their related operations is more of an OS concern,
-// and this is a very naive implementation for the sake of getting the UI working.
-// A more robust implementation might involve tree structures, indexing for search, etc.
-
-// This is also not a React
 export class FileSystem extends EventTarget {
-  nodes: FileNode[];
-  // makes O(1) file removal possible by doing a swap-and-pop
-  private _pathToNodeIdx: { [path: string]: number };
-  private _lastAction: Action | null = null;
+  root: FileTreeNode;
+  // need to track last two to undo a move (which generates two change events)
+  lastOperation: TreeOperation | null = null;
 
-  constructor(fsNodes: FileNode[]) {
+  constructor(startingNode: FileTreeNode | null) {
     super();
-    this.nodes = fsNodes;
-    this._pathToNodeIdx = {};
-    for (let i = 0; i < fsNodes.length; i++) {
-      const f = fsNodes[i];
-      this._pathToNodeIdx[f.path] = i;
-    }
+    this.root = startingNode;
   }
 
-  undoLastAction(): FileNode[] {
-    if (!this._lastAction) {
-      console.warn("No last action to undo");
-      return [];
-    }
+  /***
+   * Actions
+   */
+  addNode(nodeToAdd: FileTreeNode, targetNode: FileTreeNode): TreeOperation {
+    targetNode.children.set(nodeToAdd.name, nodeToAdd);
+    nodeToAdd.parent = targetNode;
+    return this.trackCompletedOperation({
+      type: "add",
+      addDeleteNodes: [nodeToAdd],
+    });
+  }
 
-    const undoneFiles: FileNode[] = [];
-    if (this._lastAction.type === "create") {
-      // undo create by removing the created files
-      for (let file of this._lastAction.files) {
-        const removedFile = this._removeFileO1(file.path);
-        this._debouncedChangeEvent([file.parentPath]);
-        if (removedFile) {
-          undoneFiles.push(removedFile);
-        }
-      }
-    } else if (this._lastAction.type === "delete") {
-      // undo delete by re-adding the deleted files
-      for (let file of this._lastAction.files) {
-        this._addFileO1(file, file.parentPath);
-        this._debouncedChangeEvent([file.parentPath]);
-        undoneFiles.push(file);
-      }
-    } else if (this._lastAction.type === "move") {
-      Object.entries(this._lastAction.originalPaths || {}).forEach(
-        ([newPath, originalPath]) => {
-          const file = this.getNode(newPath);
-          if (file) {
-            this._removeFileO1(file.path);
-            file.path = originalPath;
-            file.parentPath =
-              originalPath.substring(0, originalPath.lastIndexOf("/")) || "/";
-            this._addFileO1(file);
-            this._debouncedChangeEvent([file.parentPath]);
-            undoneFiles.push(file);
-          }
-        }
+  deleteNode(
+    nodeToRemove: FileTreeNode,
+    parentNode: FileTreeNode
+  ): TreeOperation {
+    parentNode.children.delete(nodeToRemove.name);
+    // nodeToRemove.parent = null; // don't do this here, as we need parent for undo
+    return this.trackCompletedOperation({
+      type: "delete",
+      addDeleteNodes: [nodeToRemove],
+    });
+  }
+
+  addNodes(
+    nodesToAdd: FileTreeNode[],
+    targetNode: FileTreeNode
+  ): TreeOperation {
+    for (let n of nodesToAdd) {
+      targetNode.children.set(n.name, n);
+      n.parent = targetNode;
+    }
+    return this.trackCompletedOperation({
+      type: "add",
+      addDeleteNodes: nodesToAdd,
+    });
+  }
+
+  deleteNodes(nodesToRemove: FileTreeNode[]): TreeOperation {
+    for (let n of nodesToRemove) {
+      n.parent?.children.delete(n.name);
+      // n.parent = null; // don't do this here, as we need parent for undo
+    }
+    return this.trackCompletedOperation({
+      type: "delete",
+      addDeleteNodes: nodesToRemove,
+    });
+  }
+
+  // Method to track completed operations (used by decorator and for generator completion)
+  trackCompletedOperation(treeOperation: TreeOperation) {
+    this.lastOperation = treeOperation;
+
+    if (treeOperation.type === "add") {
+      this.dispatchEvent(
+        new CustomEvent("change", {
+          detail: treeOperation,
+        })
+      );
+    } else if (treeOperation.type === "delete") {
+      this.dispatchEvent(
+        new CustomEvent("change", {
+          detail: treeOperation,
+        })
+      );
+    } else if (treeOperation.type === "move" && treeOperation.movedNodes) {
+      this.dispatchEvent(
+        new CustomEvent("change", {
+          detail: treeOperation,
+        })
       );
     }
 
-    // Clear last action after undo
-    this._lastAction = null;
-    return undoneFiles;
+    return treeOperation;
   }
 
-  /**
-   * Private methods
-   * These methods are internal helpers and should not be exposed publicly.
-   * They handle low-level operations like adding/removing files in O(1) time.
-   * Public methods should use these helpers to ensure consistency and emit events.
-   */
-  // adds file in O(1) time. Note that this does not check for conflicts, it simply replaces.
-  _addFileO1(newFile: FileNode, targetDirPath?: string): void {
-    if (targetDirPath !== undefined) {
-      // Construct the new path by combining the target directory with the filename
-      const fileName = newFile.path.substring(newFile.path.lastIndexOf("/"));
-      newFile.path =
-        targetDirPath === "/" ? fileName : targetDirPath + fileName;
-      newFile.parentPath = targetDirPath;
-    }
-    // if exists, remove it first
-    if (this._pathToNodeIdx[newFile.path] !== undefined) {
-      this._removeFileO1(newFile.path);
-    }
-    this.nodes.push(newFile);
-    this._pathToNodeIdx[newFile.path] = this.nodes.length - 1;
-  }
+  search(
+    predicate: (node: FileTreeNode) => boolean,
+    rootNode?: FileTreeNode
+  ): FileTreeNode[] {
+    const result: FileTreeNode[] = [];
+    const startingNode = rootNode || this.root;
 
-  // removes a file in O(1) time
-  _removeFileO1(path: string): FileNode | null {
-    const idx = this._pathToNodeIdx[path];
-    if (idx === undefined) {
-      console.warn(`File at path ${path} not found`);
-      return null;
-    }
-    // to make this constant time, swap with last element and pop from this.nodes
-    const removedFile = this.nodes[idx];
-    const lastFile = this.nodes[this.nodes.length - 1];
-    this.nodes[idx] = lastFile;
-    this._pathToNodeIdx[lastFile.path] = idx;
-    this.nodes.pop();
-    delete this._pathToNodeIdx[path];
-
-    return removedFile;
-  }
-
-  // To avoid excessive re-renders in view, debounce change events to 300ms.
-  // This method accumulates the changed paths and emits them in a batch
-  private readonly _debouncedChangeEvent: (paths: string[]) => void = (() => {
-    let timeout: NodeJS.Timeout | null = null;
-    let accumulatedPaths: Set<string> = new Set();
-    return (paths: string[]) => {
-      paths.forEach((p) => accumulatedPaths.add(p));
-      if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        this.dispatchEvent(
-          new CustomEvent<string[]>("change", {
-            detail: Array.from(accumulatedPaths),
-          })
-        );
-        accumulatedPaths.clear();
-        timeout = null;
-      }, 300);
+    const traverse = (node: FileTreeNode) => {
+      if (predicate(node)) {
+        result.push(node);
+      }
+      node.children.forEach((child) => traverse(child));
     };
-  })();
 
-  /**
-   * Public methods
-   * These methods are the main API for interacting with the file system.
-   * They handle higher-level operations like moving files, creating/deleting files,
-   * and searching. They should ensure consistency and emit appropriate events.
-   */
-
-  // Search files by name (case insensitive)
-  searchFiles(query: string, rootPath?: string): FileNode[] {
-    const lowerQuery = query.toLowerCase();
-    const filesToSearch = rootPath
-      ? this.nodes.filter((f) => f.path.startsWith(rootPath))
-      : this.nodes;
-    return filesToSearch.filter((file) =>
-      file.name.toLowerCase().includes(lowerQuery)
-    );
+    traverse(startingNode);
+    return result;
   }
 
-  // straightforward wrapper of _removeFileO1 that operates in O(n) time
-  removeFiles(paths: string[]): FileNode[] {
-    const pathSet = new Set(paths);
+  getAllDirectories(): Set<FileTreeNode> {
+    const dirs = new Set<FileTreeNode>();
 
-    // Add all child files and directories of the selected paths
-    for (let node of this.nodes) {
-      for (let path of pathSet) {
-        if (node.path.startsWith(path + "/") && node.path !== path) {
-          pathSet.add(node.path);
-        }
+    const traverse = (node: FileTreeNode) => {
+      if (node.type === "directory") {
+        dirs.add(node);
+        node.children.forEach((child) => traverse(child));
+      }
+    };
+
+    traverse(this.root);
+    return dirs;
+  }
+
+  undoLastOperation(): void {
+    if (!this.lastOperation) {
+      console.warn("No last operation to undo");
+      return;
+    }
+
+    if (this.lastOperation.type === "add") {
+      // undo add by removing the added files
+      for (let node of this.lastOperation.addDeleteNodes || []) {
+        this.deleteNode(node, node.parent);
+      }
+    } else if (this.lastOperation.type === "delete") {
+      // undo delete by re-adding the deleted files
+      for (let node of this.lastOperation.addDeleteNodes || []) {
+        this.addNode(node, node.parent);
+      }
+    } else if (this.lastOperation.type === "move") {
+      // undo move by moving files back to original parents
+      if (this.lastOperation.movedNodes) {
+        this.lastOperation.movedNodes.forEach((originalParent, node) => {
+          if (node.parent) {
+            this.deleteNode(node, node.parent);
+            this.addNode(node, originalParent);
+          }
+        });
       }
     }
 
-    const removedFiles = [];
-    for (let path of pathSet) {
-      const removedFile = this._removeFileO1(path);
-      this._debouncedChangeEvent([path]);
-      if (removedFile) {
-        removedFiles.push(removedFile);
-      }
-    }
-
-    // store the last action for potential undo
-    this._lastAction = { type: "delete", files: removedFiles };
-
-    // return for further operations, such as "undo" or "move"
-    return removedFiles;
-  }
-
-  createFileOrDirectory(partialNode: Partial<FileNode>): FileNode {
-    const newNode: Partial<FileNode> = {
-      ...partialNode,
-      size: partialNode.type === "file" ? 0 : 0, // directories have size 0 for simplicity
-      created: new Date(),
-      modified: new Date(),
-      extension:
-        partialNode.type === "file"
-          ? partialNode.name.split(".").pop() || ""
-          : undefined,
-    };
-    this._addFileO1(newNode as FileNode, partialNode.parentPath);
-
-    this._debouncedChangeEvent([newNode.parentPath]);
-
-    // store the last action for potential undo
-    this._lastAction = { type: "create", files: [newNode as FileNode] };
-
-    return this.nodes[this.nodes.length - 1]; // return the newly added node
+    this.lastOperation = null;
   }
 
   // Generator-based file move with conflict resolution and progress updates
   *moveFiles(
-    selectedPaths: string[],
-    targetDirPath: string
+    selectedNodes: FileTreeNode[],
+    targetNode: FileTreeNode
   ): Generator<
-    FileConflict | ProgressUpdate,
-    MoveResult,
-    ConflictResolution | void
+    TreeFileConflict | ProgressUpdate,
+    TreeOperation | null,
+    TreeConflictResolution | void
   > {
-    const targetDir = this.nodes[this._pathToNodeIdx[targetDirPath]];
-    if (!targetDir || targetDir.type !== "directory") {
-      throw new Error(`Target path ${targetDirPath} is not a valid directory`);
-    }
+    // Build move plan - maps source node to target parent
+    const movePlan = new Map<FileTreeNode, FileTreeNode>();
+    const nodesToOriginalParents = new Map<FileTreeNode, FileTreeNode>();
+    const nodesToSkip = new Set<FileTreeNode>();
 
-    type OriginalPath = string;
-    type NewPath = string;
-    const oldToNewPath = new Map<OriginalPath, NewPath>();
-
-    const conflicts: Array<{
-      originalPath: string;
-      targetPath: string;
-      existingFile: FileNode;
-    }> = [];
-
-    // Build the move map with complete file paths
-    for (let path of selectedPaths) {
-      if (path === targetDirPath) {
-        console.warn(`Cannot move directory ${path} into itself`);
-      } else {
-        const fileName = path.substring(path.lastIndexOf("/"));
-        const newPath =
-          targetDirPath === "/" ? fileName : targetDirPath + fileName;
-        oldToNewPath.set(path, newPath);
+    // Store original parents for undo
+    for (const node of selectedNodes) {
+      if (node.parent) {
+        nodesToOriginalParents.set(node, node.parent);
       }
     }
 
-    // Add child files and directories of selected directories
-    for (let n of this.nodes) {
-      for (let path of selectedPaths) {
-        if (n.path.startsWith(path + "/") && n.path !== path) {
-          // Get the new path of the parent directory
-          const parentNewPath = oldToNewPath.get(path);
-          if (parentNewPath) {
-            // Calculate the relative path from the selected directory to this file/directory
-            const relativePath = n.path.substring(path.length); // includes leading "/"
+    // Phase 1: Conflict detection and resolution
+    for (const sourceNode of selectedNodes) {
+      if (nodesToSkip.has(sourceNode)) continue;
 
-            // For nested items, preserve the directory structure under the new parent location
-            const newPath = parentNewPath + relativePath;
+      const result = yield* this.resolveNodeConflicts(
+        sourceNode,
+        targetNode,
+        nodesToSkip
+      );
+      if (result === "cancel") {
+        return null; // Entire operation cancelled
+      }
 
-            oldToNewPath.set(n.path, newPath);
-          }
-        }
+      if (result !== "skip") {
+        movePlan.set(sourceNode, targetNode);
       }
     }
 
-    // Check for conflicts before moving (only check file conflicts, skip directory conflicts)
-    for (let [originalPath, newPath] of oldToNewPath) {
-      const existingFile = this.nodes[this._pathToNodeIdx[newPath]];
+    // Phase 2: Execute move plan with progress updates
+    const nodesToMove = Array.from(movePlan.keys());
+    let movedCount = 0;
+    const totalNodes = nodesToMove.length;
 
-      if (existingFile && existingFile.path !== originalPath) {
-        const originalFile = this.nodes[this._pathToNodeIdx[originalPath]];
-        // Only report conflicts for files, directories can be merged
-        if (originalFile && originalFile.type === "file") {
-          conflicts.push({ originalPath, targetPath: newPath, existingFile });
-        }
-      }
-    }
-
-    // Yield conflicts for user decision
-    for (let conflict of conflicts) {
-      const decision = yield {
-        type: "conflict",
-        message: `File "${conflict.existingFile.name}" already exists in target directory`,
-        originalFile: this.nodes[this._pathToNodeIdx[conflict.originalPath]],
-        existingFile: conflict.existingFile,
-        targetPath: conflict.targetPath,
-      };
-
-      if (decision === "cancel") {
-        return { cancelled: true, moved: [] };
-      } else if (decision === "skip") {
-        oldToNewPath.delete(conflict.originalPath);
-      }
-    }
-
-    // Now perform the actual move with progress updates
-    const filesToMove = this.removeFiles(Array.from(oldToNewPath.keys()));
-    const movedFiles: FileNode[] = [];
-    const totalFiles = filesToMove.length;
-
-    for (let i = 0; i < filesToMove.length; i++) {
-      const file = filesToMove[i];
-      const newPath = oldToNewPath.get(file.path);
-      if (!newPath) continue;
-
-      file.path = newPath;
-      file.parentPath =
-        file.path.substring(0, file.path.lastIndexOf("/")) || "/";
-      this._addFileO1(file);
-      movedFiles.push(file);
-
+    for (const [sourceNode, targetParent] of movePlan) {
       // Yield progress update
       yield {
-        type: "progress",
-        current: i + 1,
-        total: totalFiles,
-        currentFile: file.name,
-        percentage: Math.round(((i + 1) / totalFiles) * 100),
+        type: "progress" as const,
+        current: movedCount + 1,
+        total: totalNodes,
+        currentFile: sourceNode.name,
+        percentage: Math.round(((movedCount + 1) / totalNodes) * 100),
       };
+
+      // Perform the actual move
+      if (sourceNode.parent) {
+        sourceNode.parent.children.delete(sourceNode.name);
+      }
+      targetParent.children.set(sourceNode.name, sourceNode);
+      sourceNode.parent = targetParent;
+
+      movedCount++;
     }
 
-    // store the last action for potential undo
-    this._lastAction = {
-      type: "move",
-      files: movedFiles,
-      // reverse of newToOldPath, a map of newPath to originalPath
-      originalPaths: Object.fromEntries(
-        Array.from(oldToNewPath.entries()).map(([oldPath, newPath]) => [
-          newPath,
-          oldPath,
-        ])
-      ),
-    };
+    if (nodesToMove.length > 0) {
+      return this.trackCompletedOperation({
+        type: "move",
+        movedNodes: nodesToOriginalParents, // map of nodes to their original parents
+      });
+    }
 
-    return { cancelled: false, moved: movedFiles };
+    return null;
   }
 
-  // UI helpers
-  getNode(path: string): FileNode | null {
-    return this.nodes[this._pathToNodeIdx[path]] ?? null;
-  }
-  getChildNodes(targetDirPath: string): FileNode[] {
-    return this.nodes.filter((f) => f.parentPath === targetDirPath);
-  }
-  getNodes(paths: string[]): FileNode[] {
-    const result: FileNode[] = [];
-    for (let path of paths) {
-      const node = this.nodes[this._pathToNodeIdx[path]];
-      if (node) {
-        result.push(node);
+  // Helper method to resolve conflicts for a single node and its potential children
+  private *resolveNodeConflicts(
+    sourceNode: FileTreeNode,
+    targetParent: FileTreeNode,
+    nodesToSkip: Set<FileTreeNode>
+  ): Generator<
+    TreeFileConflict,
+    "cancel" | "skip" | "proceed",
+    TreeConflictResolution | void
+  > {
+    // Check if source node conflicts with existing child in target
+    const existingNode = targetParent.children.get(sourceNode.name);
+
+    // Yield conflict to user for resolution (files only, not directories)
+    if (existingNode && sourceNode.type === "file") {
+      const conflict: TreeFileConflict = {
+        message: `File "${sourceNode.name}" already exists in destination.`,
+        type: "conflict",
+        originalNode: sourceNode,
+        existingNode: existingNode,
+        targetParent: targetParent,
+      };
+
+      const resolution = yield conflict;
+
+      if (resolution === "cancel") {
+        return "cancel";
+      } else if (resolution === "skip") {
+        nodesToSkip.add(sourceNode);
+        return "skip";
+      } else if (resolution === "replace") {
+        // Delete existing node before move
+        targetParent.children.delete(existingNode.name);
+        // Continue with move
       }
     }
-    return result;
-  }
-  searchNodesInPath(query: string, dirPath: string): FileNode[] {
-    return this.nodes.filter((f) => {
-      return f.path.startsWith(dirPath) && f.name.match(new RegExp(query, "i"));
-    });
+
+    // If source is a directory and we're merging or no conflict, check children
+    if (sourceNode.type === "directory" && existingNode?.type === "directory") {
+      // For directory merges, recursively resolve conflicts for all children
+      for (const childNode of sourceNode.children.values()) {
+        const childResult = yield* this.resolveNodeConflicts(
+          childNode,
+          existingNode,
+          nodesToSkip
+        );
+        if (childResult === "cancel") {
+          return "cancel";
+        }
+      }
+    }
+
+    return "proceed";
   }
 }

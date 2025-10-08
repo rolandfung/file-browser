@@ -1,34 +1,30 @@
-import { FileSystem } from "../FileSystem";
-
 import * as React from "react";
-import { FileNode } from "../types";
+import { FileTreeNode } from "../FileTreeNode";
 import { FileItem } from "./FileItem";
 import { VirtualizedList } from "./VirtualizedList";
 
 interface FileTreeProps {
-  fileSystem: FileSystem;
-  contextPath?: string;
-  onDrillDown?: (node: FileNode) => void;
-  expandedDirs: Set<string>;
-  selectedFilePaths: Set<string>;
-  handleExpandleToggle: (node: FileNode) => void;
+  contextNode?: FileTreeNode;
+  onDrillDown?: (node: FileTreeNode) => void;
+  expandedDirs: Set<FileTreeNode>;
+  selectedNodes: Set<FileTreeNode>;
+  handleExpandleToggle: (node: FileTreeNode) => void;
   handleItemSelect: (
     event: React.MouseEvent,
-    node: FileNode,
-    sortingFunc: (a: FileNode, b: FileNode) => number
+    node: FileTreeNode,
+    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
   ) => void;
   handleOutsideClick: (event: React.MouseEvent) => void;
   searchValue?: string;
-  onFileDrop?: (droppedPaths: string[], targetPath: string) => void;
-  sortingFunc?: (a: FileNode, b: FileNode) => number;
+  onFileDrop?: (droppedNodes: FileTreeNode[], targetNode: FileTreeNode) => void;
+  sortingFunc?: (a: FileTreeNode, b: FileTreeNode) => number;
 }
 
 export function FileTree({
-  fileSystem,
-  contextPath = "/",
+  contextNode = null,
   onDrillDown,
   expandedDirs,
-  selectedFilePaths,
+  selectedNodes,
   handleExpandleToggle,
   handleItemSelect,
   handleOutsideClick,
@@ -40,16 +36,16 @@ export function FileTree({
 
   // Flatten the tree structure for virtualization so that each item is the same height
   const flattenNodes = (
-    nodes: FileNode[],
+    nodes: FileTreeNode[],
     level: number = 0
-  ): Array<{ node: FileNode; level: number }> => {
-    const result: Array<{ node: FileNode; level: number }> = [];
+  ): Array<{ node: FileTreeNode; level: number }> => {
+    const result: Array<{ node: FileTreeNode; level: number }> = [];
 
     for (const node of nodes) {
       result.push({ node, level });
 
-      if (node.type === "directory" && expandedDirs.has(node.path)) {
-        const children = fileSystem.getChildNodes(node.path).sort(sortingFunc);
+      if (node.type === "directory" && expandedDirs.has(node)) {
+        const children = node.getChildren().sort(sortingFunc);
         result.push(...flattenNodes(children, level + 1));
       }
     }
@@ -58,11 +54,13 @@ export function FileTree({
   };
 
   const flattenedItems = isSearchResultsMode
-    ? fileSystem
-        .searchNodesInPath(searchValue, contextPath)
+    ? contextNode
+        .search((node) => {
+          return !!node.name.match(new RegExp(searchValue, "i"));
+        })
         .sort(sortingFunc)
         .map((node) => ({ node, level: 0 }))
-    : flattenNodes(fileSystem.getChildNodes(contextPath).sort(sortingFunc));
+    : flattenNodes(contextNode.getChildren().sort(sortingFunc));
 
   return (
     <div
@@ -79,29 +77,28 @@ export function FileTree({
     >
       <VirtualizedList listItemHeight={21}>
         {flattenedItems.map(({ node, level }) => (
-          <div key={node.path} style={{ paddingLeft: level * 20 }}>
-            <FileItem
-              selectedFilePaths={selectedFilePaths}
-              level={level}
-              onNameClick={(event: React.MouseEvent, node: FileNode) => {
-                switch (event.detail) {
-                  case 2:
-                    if (node.type === "directory" && onDrillDown) {
-                      onDrillDown(node);
-                    }
-                    break;
-                  default:
-                    handleItemSelect(event, node, sortingFunc);
-                    break;
-                }
-              }}
-              onExpandToggle={handleExpandleToggle}
-              onFileDrop={onFileDrop}
-              node={node}
-              selected={selectedFilePaths.has(node.path)}
-              expanded={expandedDirs.has(node.path)}
-            />
-          </div>
+          <FileItem
+            key={node.getFullNodePath()}
+            selectedNodes={selectedNodes}
+            level={level}
+            onNameClick={(event: React.MouseEvent, node: FileTreeNode) => {
+              switch (event.detail) {
+                case 2:
+                  if (node.type === "directory" && onDrillDown) {
+                    onDrillDown(node);
+                  }
+                  break;
+                default:
+                  handleItemSelect(event, node, sortingFunc);
+                  break;
+              }
+            }}
+            onExpandToggle={handleExpandleToggle}
+            onFileDrop={onFileDrop}
+            node={node}
+            selected={selectedNodes.has(node)}
+            expanded={expandedDirs.has(node)}
+          />
         ))}
       </VirtualizedList>
     </div>

@@ -1,5 +1,15 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * /a/a.txt
+ * /a/b/x.txt
+ * /b/x.txt
+ * /b/y.txt
+ *
+ * move /b into /a, expect conflict on x.txt
+ *
+ */
+
 test("user can resolve move conflicts", async ({ page }) => {
   await page.goto("http://localhost:8000/");
   await page.getByRole("button", { name: "+📁" }).click();

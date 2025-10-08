@@ -111,11 +111,11 @@ The e2e tests cover the following key functionality:
 
 ### Technical Notes
 
-- FileNode: interface representing a file or directory with properties like id, name, type, path, parentPath, level, size, created, modified, and optional extension.
-- DirectoryStructure: object mapping directory paths to FileNode objects for quick lookup (not used as we're simply concerned about the paths).
-- FileSystem/FileSystemView:
-  - Stores file information in a simple array, and a map of file paths to the file array indices
-  - Contains methods for manipulating the file system (create, remove, move, search). Creation and removal operations are constant time O(1) due to the use of a storage array and map for index lookup.
+- FileNode: class representing a file or directory.
+- FileSystem:
+  - Stores file information in a tree structure
+  - Contains methods for manipulating the file system (create, delete, move, search). Create, delete, and move operations are naturally O(1), but we check for name conflicts on moves making them O(n) in the worst case.
   - Extends EventTarget to notify view of changes to which directories are being added to or removed from.
-    - FileSystemView only needs to re-render if the current contextPath (the directory being viewed) is a parent of any of the paths being added to or removed from, as indicated by the details of the event.
+    - FileSystemView only needs to re-render if the current context node (the directory being viewed) is a parent of any of the directory nodes being added to or removed from, as indicated by the details of the event.
     - This approach was chosen over a more "React-centric" way of state management using React built-ins like `useState`, `useSelector`, or Redux, because the slice of state we are listening to can _change_ as we navigate through the directories.
+- FileSystemView: Binds to a FileSystem instance and renders the current context node (directory) and its children. Contains components for navigating, selecting, creating, deleting, moving, searching, and sorting files/directories.

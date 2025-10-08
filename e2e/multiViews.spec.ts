@@ -9,14 +9,14 @@ test("Multi views can be added/removed, and filesystem change are propagated acr
   await page.getByRole("button", { name: "Add View" }).click();
 
   // changes are synced across views
-  await page.getByRole("listitem", { name: "audio_2726.png" }).nth(1).click();
+  await page.getByRole("listitem", { name: "app_7857.js" }).nth(1).click();
   await page.getByRole("button", { name: "🗑️" }).nth(1).click();
   await page.getByRole("button", { name: "OK" }).click();
 
   // wait half a second
   await page.waitForTimeout(500);
   expect(
-    await page.getByRole("listitem", { name: "audio_2726.png" }).count()
+    await page.getByRole("listitem", { name: "app_7857.js" }).count()
   ).toBe(0);
 
   // multi views can be closed

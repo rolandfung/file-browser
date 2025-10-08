@@ -23,7 +23,7 @@ export function Search({
   return (
     <input
       type="text"
-      placeholder="Search..."
+      placeholder="Search in current path..."
       onChange={onChangeHandler}
       style={{
         display: "block",

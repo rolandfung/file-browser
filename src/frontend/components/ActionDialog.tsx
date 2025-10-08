@@ -1,12 +1,12 @@
 import * as React from "react";
-import { FileNode } from "../types";
+import { FileTreeNode } from "../FileTreeNode";
 import { DialogBase, DialogBaseProps } from "./DialogBase";
 interface ActionDialogProps extends DialogBaseProps {
   createType: "file" | "directory"; // only used if actionType is "create"
   actionType: "create" | "delete";
-  onCreate: (partialNode?: Partial<FileNode>) => void; // only used if actionType is "create"
-  selection: string[]; // only used if actionType is "delete"
-  onSelectionAction: (partialNode?: Partial<FileNode>) => void;
+  onCreate: (node: FileTreeNode) => void; // only used if actionType is "create"
+  selection: FileTreeNode[]; // only used if actionType is "delete"
+  onDelete: () => void;
   onCancel: () => void;
 }
 
@@ -16,7 +16,7 @@ export function ActionDialog({
   actionType,
   onCreate,
   onCancel,
-  onSelectionAction,
+  onDelete,
   selection,
 }: ActionDialogProps) {
   const [name, setName] = React.useState("");
@@ -26,20 +26,19 @@ export function ActionDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (actionType === "delete" && selection.length > 0) {
-      onSelectionAction();
+      onDelete();
       return;
     } else {
       // create
       if (name.trim()) {
-        onCreate({
-          name: name.trim(),
-          type: createType,
-          extension: createType === "file" ? name.split(".").pop() || "" : "",
-          size:
+        onCreate(
+          new FileTreeNode(
+            name.trim(),
+            createType,
             createType === "file" ? Math.floor(Math.random() * 10000) + 100 : 0,
-          created: new Date(),
-          modified: new Date(),
-        });
+            new Date()
+          )
+        );
         setName("");
       }
     }

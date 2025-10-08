@@ -1,4 +1,6 @@
 import * as React from "react";
+import { FileTreeNode } from "../FileTreeNode";
+
 /**
  * Search
  * Create New File
@@ -20,7 +22,7 @@ interface FileSystemViewToolbarProps {
   onDeleteSelectedButton: () => void;
   // onMoveSelectedButton: () => void;
   onDownloadCityButton: () => void;
-  selectedFilePaths: Set<string>;
+  selectedNodes: FileTreeNode[];
   disableCreate?: boolean;
   disableNav?: boolean;
   disableExpansion?: boolean;
@@ -40,7 +42,7 @@ export function FileSystemViewToolbar({
   onCreateDirectoryButton,
   onDeleteSelectedButton,
   // onMoveSelectedButton,
-  selectedFilePaths = new Set<string>(),
+  selectedNodes = [],
   disableNav = false,
   disableCreate = false,
   disableExpansion = false,
@@ -75,7 +77,7 @@ export function FileSystemViewToolbar({
       <SpacerHorizontal px={5} />
       <button
         title="Delete Selected"
-        disabled={selectedFilePaths.size === 0}
+        disabled={selectedNodes.length === 0}
         onClick={onDeleteSelectedButton}
         style={{ padding: "5px 10px" }}
       >
@@ -86,7 +88,7 @@ export function FileSystemViewToolbar({
        */}
       {/* <button
         title="Move Selected"
-        disabled={selectedFilePaths.size === 0}
+        disabled={selectedNodes.size === 0}
         onClick={onMoveSelectedButton}
         style={{  padding: "5px 10px" }}
       >

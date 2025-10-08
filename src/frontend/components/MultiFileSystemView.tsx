@@ -11,7 +11,7 @@ export function MultiFileSystemView({ fileSystem }: MultiFileSystemViewProps) {
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "z") {
-        fileSystem.undoLastAction();
+        fileSystem.undoLastOperation();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
