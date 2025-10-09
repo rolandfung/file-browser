@@ -108,7 +108,8 @@ export function FileSystemView({
   /**
    * Search and sort state and handlers
    */
-  const [searchValue, setSearchValue] = React.useState<string>("");
+  const [searchValueRaw, setSearchValue] = React.useState<string>("");
+  const searchValue = React.useDeferredValue(searchValueRaw);
   const [sort, setSortMode] = React.useState<{
     mode: "name" | "type";
     asc: boolean;
@@ -426,7 +427,7 @@ export function FileSystemView({
         />
       </div>
       <Search
-        value={searchValue}
+        value={searchValueRaw}
         onChange={(e) => setSearchValue(e.target.value)}
       />
       <FileTree

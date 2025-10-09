@@ -1,30 +1,17 @@
 import * as React from "react";
 export function Search({
   onChange,
+  value,
 }: {
   value?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const debouncedOnChange = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-
-  const onChangeHandler = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (debouncedOnChange.current) {
-      clearTimeout(debouncedOnChange.current);
-    }
-    debouncedOnChange.current = setTimeout(() => {
-      if (onChange) {
-        onChange(event);
-      }
-    }, 300);
-  };
-
   return (
     <input
       type="text"
+      value={value}
       placeholder="Search in current path..."
-      onChange={onChangeHandler}
+      onChange={onChange}
       style={{
         display: "block",
         marginBottom: 10,
