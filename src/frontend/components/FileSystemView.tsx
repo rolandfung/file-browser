@@ -24,7 +24,6 @@ export function FileSystemView({
   /**
    * Navigation state and handlers
    */
-
   const [fs, setFs] = React.useState<FileSystem>(fsProp);
   const previousFsPropRef = React.useRef<FileSystem>(fsProp);
 
@@ -247,48 +246,17 @@ export function FileSystemView({
   // user clicked on file/folder name to select/unselect
   const handleItemSelect = (
     event: React.MouseEvent<HTMLElement>,
-    node: FileTreeNode,
-    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
+    node: FileTreeNode
   ) => {
     setState(
       ({
         selectedNodes: prevSelectedNodes,
         expandedNodes: prevExpandedNodes,
-        lastSelectedNode: prevLastSelectedNode,
       }) => {
         const newSelectedNodes = new Set(prevSelectedNodes);
-
-        // Range selection with Shift+click
-        const isRangeSelect = event.shiftKey && prevLastSelectedNode;
         // Multi-select with Ctrl/Cmd+click
         const isMultiSelect = event.ctrlKey || event.metaKey;
-
-        if (isRangeSelect) {
-          // Get all items in current view (flattened)
-          const allItems = isSearchResultsMode
-            ? contextNode
-                .search((node) => {
-                  return !!node.name.match(new RegExp(searchValue, "i"));
-                })
-                .sort(sortingFunc)
-            : getAllVisibleItems(contextNode, prevExpandedNodes, sortingFunc);
-
-          // Find indices of start and end items
-          const startIndex = allItems.findIndex(
-            (item) => item === prevLastSelectedNode
-          );
-          const endIndex = allItems.findIndex((item) => item === node);
-
-          if (startIndex !== -1 && endIndex !== -1) {
-            // Select range between start and end (inclusive)
-            const rangeStart = Math.min(startIndex, endIndex);
-            const rangeEnd = Math.max(startIndex, endIndex);
-
-            for (let i = rangeStart; i <= rangeEnd; i++) {
-              newSelectedNodes.add(allItems[i]);
-            }
-          }
-        } else if (isMultiSelect) {
+        if (isMultiSelect) {
           if (newSelectedNodes.has(node)) {
             // unselecting
             newSelectedNodes.delete(node);
@@ -315,6 +283,23 @@ export function FileSystemView({
         };
       }
     );
+  };
+
+  const handleRangeSelect = (nodeList: FileTreeNode[]) => {
+    setState((prevState) => {
+      const newSelectedNodes = new Set(prevState.selectedNodes);
+      for (let node of nodeList) {
+        newSelectedNodes.add(node);
+      }
+      return {
+        selectedNodes: newSelectedNodes,
+        expandedNodes: prevState.expandedNodes,
+        lastSelectedNode:
+          nodeList.length > 0
+            ? nodeList[nodeList.length - 1]
+            : prevState.lastSelectedNode,
+      };
+    });
   };
 
   const handleExpandAll = () => {
@@ -402,29 +387,9 @@ export function FileSystemView({
   };
 
   // Helper function to get all visible items in current view (for range selection)
-  const getAllVisibleItems = (
-    node: FileTreeNode,
-    expanded: Set<FileTreeNode>,
-    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
-  ): FileTreeNode[] => {
-    const flattenNodes = (nodes: FileTreeNode[]): FileTreeNode[] => {
-      const result: FileTreeNode[] = [];
-      for (const node of nodes) {
-        result.push(node);
-        if (node.type === "directory" && expanded.has(node)) {
-          const children = node.getChildren().sort(sortingFunc);
-          result.push(...flattenNodes(children));
-        }
-      }
-      return result;
-    };
-    return flattenNodes(node.getChildren()).sort(sortingFunc);
-  };
-
   const canNavUp = contextNode.getFullNodePath() !== "/";
   const canNavBack = history.length > 1;
   const isSearchMode = searchValue.trim().length > 0;
-  const isSearchResultsMode = searchValue.trim().length > 0;
   const oneCitySelected =
     state.selectedNodes.size === 1 &&
     [...state.selectedNodes][0].name.endsWith(".city");
@@ -521,7 +486,9 @@ export function FileSystemView({
         searchValue={searchValue}
         expandedDirs={state.expandedNodes}
         selectedNodes={state.selectedNodes}
+        lastSelectedNode={state.lastSelectedNode}
         handleExpandleToggle={handleExpandleToggle}
+        handleRangeSelect={handleRangeSelect}
         handleItemSelect={handleItemSelect}
         handleOutsideClick={unselectAll}
         onDrillDown={handleDrillDown}

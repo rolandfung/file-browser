@@ -9,11 +9,9 @@ interface FileTreeProps {
   expandedDirs: Set<FileTreeNode>;
   selectedNodes: Set<FileTreeNode>;
   handleExpandleToggle: (node: FileTreeNode) => void;
-  handleItemSelect: (
-    event: React.MouseEvent,
-    node: FileTreeNode,
-    sortingFunc: (a: FileTreeNode, b: FileTreeNode) => number
-  ) => void;
+  handleRangeSelect: (nodeList: FileTreeNode[]) => void;
+  lastSelectedNode?: FileTreeNode;
+  handleItemSelect: (event: React.MouseEvent, node: FileTreeNode) => void;
   handleOutsideClick: (event: React.MouseEvent) => void;
   searchValue?: string;
   onFileDrop?: (droppedNodes: FileTreeNode[], targetNode: FileTreeNode) => void;
@@ -26,6 +24,8 @@ export function FileTree({
   expandedDirs,
   selectedNodes,
   handleExpandleToggle,
+  handleRangeSelect,
+  lastSelectedNode,
   handleItemSelect,
   handleOutsideClick,
   searchValue = "",
@@ -62,6 +62,37 @@ export function FileTree({
         .map((node) => ({ node, level: 0 }))
     : flattenNodes(contextNode.getChildren().sort(sortingFunc));
 
+  const handleNameClick = (event: React.MouseEvent, node: FileTreeNode) => {
+    const isRangeSelect = event.shiftKey && lastSelectedNode;
+    const doubleClick = event.detail === 2;
+    const allItems = flattenedItems.map(({ node }) => node);
+
+    if (isRangeSelect) {
+      // Find indices of start and end items
+      const startIndex = allItems.findIndex(
+        (item) => item === lastSelectedNode
+      );
+      const endIndex = allItems.findIndex((item) => item === node);
+      // sort indices and select range
+      const [minIndex, maxIndex] = [
+        Math.min(startIndex, endIndex),
+        Math.max(startIndex, endIndex),
+      ];
+
+      if (startIndex !== -1 && endIndex !== -1) {
+        const newSelectedNodes = allItems.slice(minIndex, maxIndex + 1);
+        handleRangeSelect(newSelectedNodes);
+      }
+    } else if (doubleClick) {
+      // onDrillDown(node) if directory
+      if (node.type === "directory" && onDrillDown) {
+        onDrillDown(node);
+      }
+    } else {
+      handleItemSelect(event, node);
+    }
+  };
+
   return (
     <div
       style={{
@@ -81,18 +112,7 @@ export function FileTree({
             key={node.getFullNodePath()}
             selectedNodes={selectedNodes}
             level={level}
-            onNameClick={(event: React.MouseEvent, node: FileTreeNode) => {
-              switch (event.detail) {
-                case 2:
-                  if (node.type === "directory" && onDrillDown) {
-                    onDrillDown(node);
-                  }
-                  break;
-                default:
-                  handleItemSelect(event, node, sortingFunc);
-                  break;
-              }
-            }}
+            onNameClick={handleNameClick}
             onExpandToggle={handleExpandleToggle}
             onFileDrop={onFileDrop}
             node={node}
