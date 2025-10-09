@@ -15,11 +15,12 @@ interface AppState {
   fs: FileSystem;
 }
 
+const fs = generateEmptyFileSystem();
+
 // Functional component to use hooks for worker
 const AppContent: React.FC = () => {
-  const [fs, setFs] = React.useState<FileSystem>(generateEmptyFileSystem());
   const onFilesGenerated = React.useCallback((root: FileTreeNode) => {
-    setFs(new FileSystem(root));
+    fs.addNodes(Array.from(root.children.values()), fs.root);
   }, []);
 
   const [enableArtificialDelay, setEnableArtificialDelay] =

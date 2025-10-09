@@ -17,16 +17,13 @@ interface FileSystemViewProps {
 }
 
 export function FileSystemView({
-  fileSystem: fsProp,
+  fileSystem: fs,
   showCloseIcon = false,
   onClose,
 }: FileSystemViewProps) {
   /**
    * Navigation state and handlers
    */
-  const [fs, setFs] = React.useState<FileSystem>(fsProp);
-  const previousFsPropRef = React.useRef<FileSystem>(fsProp);
-
   const [history, setHistory] = React.useState<FileTreeNode[]>([fs.root]);
   const contextNode = history[history.length - 1];
 
@@ -61,26 +58,10 @@ export function FileSystemView({
   );
 
   React.useEffect(() => {
-    // detect if the fsProp has changed, or if the forceUpdate function has changed due to a change in contextNode
-    const fsPropChanged = previousFsPropRef.current !== fsProp;
-    previousFsPropRef.current = fsProp;
-
-    setFs((prevFs) => {
-      prevFs.removeEventListener("change", forceUpdate);
-      fsProp.addEventListener("change", forceUpdate);
-      // reset history to root of new fs, only if the fs has changed, but not if
-      // only the forceUpdate function has changed solely due to a
-      // navigation/contextNode change
-      if (fsPropChanged) {
-        setHistory([fsProp.root]);
-      }
-      return fsProp;
-    });
-    // cleanup function to remove listener
-    return () => {
-      fsProp.removeEventListener("change", forceUpdate);
-    };
-  }, [fsProp, forceUpdate]);
+    fs.removeEventListener("change", forceUpdate);
+    fs.addEventListener("change", forceUpdate);
+    return () => fs.removeEventListener("change", forceUpdate);
+  }, [forceUpdate]);
 
   const handleDrillDown = (node: FileTreeNode) => {
     setHistory((prevHistory) => [...prevHistory, node]);
