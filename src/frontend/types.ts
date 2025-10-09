@@ -32,60 +32,12 @@ export interface MoveResult {
   moved: FileTreeNode[];
 }
 
-// Tree-based move result
-export interface TreeMoveResult {
-  cancelled: boolean;
-  moved: FileTreeNode[];
-  conflicts: TreeFileConflict[];
-  affectedPaths: string[];
-}
-
 export interface ProgressUpdate {
   type: "progress";
   current: number;
   total: number;
   currentFile: string;
   percentage: number;
-}
-
-// Tree-based file system structures
-
-// Result type for tree-based file generation
-export interface FileSystemTreeResult {
-  root: FileTreeNode;
-  totalNodes: number;
-  maxDepth: number;
-}
-
-// Tree traversal and operation types
-export interface TreeTraversalOptions {
-  startingRoot?: FileTreeNode; // Start traversal from this node instead of root
-  maxDepth?: number;
-  includeDirectories?: boolean;
-  includeFiles?: boolean;
-  sortFunction?: (a: FileTreeNode, b: FileTreeNode) => number;
-}
-
-export interface TreeOperationResult {
-  success: boolean;
-  affectedPaths: string[];
-  modifiedNodes: FileTreeNode[];
-  error?: string;
-}
-
-// Tree-based move operation types
-export interface TreeMoveOperation {
-  sourceNode: FileTreeNode;
-  targetParent: FileTreeNode;
-  newName?: string;
-  preserveStructure: boolean;
-}
-
-export interface FileTreeGenerationConfig {
-  totalFiles: number;
-  maxDepth: number;
-  seed: number;
-  fileTypes: FileType[];
 }
 
 export interface FileType {
