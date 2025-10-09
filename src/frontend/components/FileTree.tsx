@@ -45,7 +45,7 @@ export function FileTree({
       result.push({ node, level });
 
       if (node.type === "directory" && expandedDirs.has(node)) {
-        const children = node.getChildren().sort(sortingFunc);
+        const children = Array.from(node.children.values()).sort(sortingFunc);
         result.push(...flattenNodes(children, level + 1));
       }
     }
@@ -60,7 +60,7 @@ export function FileTree({
         })
         .sort(sortingFunc)
         .map((node) => ({ node, level: 0 }))
-    : flattenNodes(contextNode.getChildren().sort(sortingFunc));
+    : flattenNodes(Array.from(contextNode.children.values()).sort(sortingFunc));
 
   const handleNameClick = (event: React.MouseEvent, node: FileTreeNode) => {
     const isRangeSelect = event.shiftKey && lastSelectedNode;

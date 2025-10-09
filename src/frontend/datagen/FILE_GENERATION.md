@@ -146,7 +146,6 @@ class FileTreeNode extends EventTarget {
 
   getFullNodePath(): string;
   search(predicate: (node: FileTreeNode) => boolean): FileTreeNode[];
-  getChildren(): FileTreeNode[];
   isDescendantOf(potentialAncestor: FileTreeNode): boolean;
 }
 ```

@@ -40,10 +40,6 @@ export class FileTreeNode {
     return results;
   }
 
-  getChildren(): FileTreeNode[] {
-    return Array.from(this.children.values());
-  }
-
   isDescendantOf(potentialAncestor: FileTreeNode): boolean {
     let current: FileTreeNode | null = this.parent;
     while (current) {
