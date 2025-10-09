@@ -1,6 +1,5 @@
 import { FileSystem } from "../FileSystem";
 import { FileTreeNode } from "../FileTreeNode";
-import { TreeOperation } from "../types";
 import * as React from "react";
 import { FileTree } from "./FileTree";
 import { FileSystemViewToolbar } from "./FileSystemViewToolbar";
@@ -9,7 +8,7 @@ import { Search } from "./Search";
 import { ActionDialog } from "./ActionDialog";
 import { SelectionInfo } from "./SelectionInfo";
 import { useMoveDialogContext } from "./MoveDialog";
-
+import { useFileSystemSubscription } from "../hooks/useFileSystemSubscription";
 interface FileSystemViewProps {
   fileSystem: FileSystem;
   showCloseIcon?: boolean;
@@ -27,41 +26,9 @@ export function FileSystemView({
   const [history, setHistory] = React.useState<FileTreeNode[]>([fs.root]);
   const contextNode = history[history.length - 1];
 
-  // _forceRender is used to re-render when the fileSystem emits a change event
-  const [, _forceRender] = React.useReducer((x) => x + 1, 0);
-  // forceUpdate function detects if any of the affected nodes are in the current context path
-  const forceUpdate = React.useCallback(
-    (event: CustomEvent<TreeOperation>) => {
-      console.debug("FileSystemView detected TreeOperation:", event.detail);
-      // if any of the affected nodes are in the contextNode's path, re-render. Could
-      // go extra crazy and check if the an affected node is actually visible (e.g.
-      // in an expanded directory), but this is probably good enough for now
-      if (
-        Array.from(event.detail.addDeleteNodes ?? []).some(
-          (n) =>
-            n.parent.isDescendantOf(contextNode) || n.parent === contextNode
-        ) ||
-        Array.from(event.detail.movedNodes ?? []).some(
-          ([n, origParent]) =>
-            // if moved node is in context path
-            n.parent.isDescendantOf(contextNode) ||
-            n.parent === contextNode ||
-            // or if original parent is in context path
-            origParent.isDescendantOf(contextNode) ||
-            origParent === contextNode
-        )
-      ) {
-        _forceRender();
-      }
-    },
-    [contextNode]
-  );
-
-  React.useEffect(() => {
-    fs.removeEventListener("change", forceUpdate);
-    fs.addEventListener("change", forceUpdate);
-    return () => fs.removeEventListener("change", forceUpdate);
-  }, [forceUpdate]);
+  // will re-render this component when contextNode, is
+  // mutated by the FileSystem due to tree operations
+  useFileSystemSubscription(fs, contextNode);
 
   const handleDrillDown = (node: FileTreeNode) => {
     setHistory((prevHistory) => [...prevHistory, node]);

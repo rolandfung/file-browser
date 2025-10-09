@@ -71,27 +71,11 @@ export class FileSystem extends EventTarget {
   // Method to track completed operations (used by decorator and for generator completion)
   trackCompletedOperation(treeOperation: TreeOperation) {
     this.lastOperation = treeOperation;
-
-    if (treeOperation.type === "add") {
-      this.dispatchEvent(
-        new CustomEvent("change", {
-          detail: treeOperation,
-        })
-      );
-    } else if (treeOperation.type === "delete") {
-      this.dispatchEvent(
-        new CustomEvent("change", {
-          detail: treeOperation,
-        })
-      );
-    } else if (treeOperation.type === "move" && treeOperation.movedNodes) {
-      this.dispatchEvent(
-        new CustomEvent("change", {
-          detail: treeOperation,
-        })
-      );
-    }
-
+    this.dispatchEvent(
+      new CustomEvent("change", {
+        detail: treeOperation,
+      })
+    );
     return treeOperation;
   }
 
@@ -225,7 +209,7 @@ export class FileSystem extends EventTarget {
     if (nodesToMove.length > 0) {
       return this.trackCompletedOperation({
         type: "move",
-        movedNodes: nodesToOriginalParents, // map of nodes to their original parents
+        movedNodes: nodesToOriginalParents, // map of moved nodes to their original parents
       });
     }
 
@@ -285,5 +269,31 @@ export class FileSystem extends EventTarget {
     }
 
     return "proceed";
+  }
+
+  subscribeToChanges(contextNode: FileTreeNode, callback: () => void) {
+    const cbOnDescendantChange = (event: CustomEvent<TreeOperation>) => {
+      if (
+        Array.from(event.detail.addDeleteNodes ?? []).some(
+          (n) =>
+            n.parent.isDescendantOf(contextNode) || n.parent === contextNode
+        ) ||
+        Array.from(event.detail.movedNodes ?? []).some(
+          ([n, origParent]) =>
+            // if moved node is in context path
+            n.parent.isDescendantOf(contextNode) ||
+            n.parent === contextNode ||
+            // or if original parent is in context path
+            origParent.isDescendantOf(contextNode) ||
+            origParent === contextNode
+        )
+      ) {
+        callback();
+      }
+    };
+    this.addEventListener("change", cbOnDescendantChange);
+    return () => {
+      this.removeEventListener("change", cbOnDescendantChange);
+    };
   }
 }
