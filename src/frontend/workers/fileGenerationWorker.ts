@@ -11,6 +11,10 @@ interface GenerateFilesMessage {
   enableArtificialDelay?: boolean;
 }
 
+interface TestMessage {
+  type: "TEST";
+}
+
 interface ProgressMessage {
   type: "PROGRESS";
   payload: {
@@ -31,14 +35,26 @@ interface ErrorMessage {
   };
 }
 
-type WorkerMessage = GenerateFilesMessage;
+type WorkerMessage = GenerateFilesMessage | TestMessage;
 
 // Listen for messages from the main thread
 self.addEventListener("message", async (event: MessageEvent<WorkerMessage>) => {
-  const { type, enableArtificialDelay = false } = event.data;
+  console.log("Worker received message:", event.data);
+  const data = event.data;
+  const { type } = data;
+  const enableArtificialDelay =
+    "enableArtificialDelay" in data ? data.enableArtificialDelay : false;
 
   try {
     switch (type) {
+      case "TEST": {
+        console.log("Worker received TEST message, responding...");
+        self.postMessage({
+          type: "PROGRESS",
+          payload: { message: "Worker is alive and responding", progress: 0 },
+        });
+        break;
+      }
       case "GENERATE_FILES": {
         console.log(
           "Starting file generation with delay:",

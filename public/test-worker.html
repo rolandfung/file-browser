@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Worker Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px; margin: 5px; }
+        #log { background: #f0f0f0; padding: 10px; margin-top: 20px; min-height: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Worker Test</h1>
+    <button onclick="testBasic()">Test Basic Worker</button>
+    <button onclick="testFileWorker()">Test File Worker</button>
+    <button onclick="testFileGeneration()">Test File Generation</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log"></div>
+    
+    <script>
+        function log(msg) {
+            document.getElementById('log').innerHTML += msg + '<br>';
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function testBasic() {
+            log('Testing basic worker...');
+            
+            var code = 'self.onmessage = function(e) { self.postMessage("Hello from worker!"); }';
+            var blob = new Blob([code], { type: 'application/javascript' });
+            var url = URL.createObjectURL(blob);
+            var worker = new Worker(url);
+            
+            worker.onmessage = function(e) {
+                log('✅ Basic worker success: ' + e.data);
+                worker.terminate();
+                URL.revokeObjectURL(url);
+            };
+            
+            worker.onerror = function(e) {
+                log('❌ Basic worker error: ' + e.message);
+                worker.terminate();
+                URL.revokeObjectURL(url);
+            };
+            
+            worker.postMessage('test');
+        }
+        
+        function testFileWorker() {
+            log('Testing file worker...');
+            
+            try {
+                var worker = new Worker('/fileGenerationWorker.js');
+                
+                worker.onmessage = function(e) {
+                    log('✅ File worker message: ' + JSON.stringify(e.data));
+                };
+                
+                worker.onerror = function(e) {
+                    log('❌ File worker error: ' + (e.message || 'Unknown error'));
+                    log('Error details: line ' + e.lineno + ', file: ' + e.filename);
+                };
+                
+                worker.postMessage({ type: 'TEST' });
+                log('Message sent to file worker...');
+                
+            } catch (e) {
+                log('❌ Failed to create file worker: ' + e.message);
+            }
+        }
+        
+        function testFileGeneration() {
+            log('Testing file generation...');
+            
+            try {
+                var worker = new Worker('/fileGenerationWorker.js');
+                
+                worker.onmessage = function(e) {
+                    var data = e.data;
+                    if (data.type === 'PROGRESS') {
+                        log('Progress: ' + data.payload.progress + '% - ' + data.payload.message);
+                    } else if (data.type === 'COMPLETE') {
+                        log('✅ Generation complete!');
+                        log('Result summary: ' + countItems(data.payload) + ' total items');
+                        worker.terminate();
+                    } else if (data.type === 'ERROR') {
+                        log('❌ Generation error: ' + data.payload.message);
+                        worker.terminate();
+                    } else {
+                        log('Unknown message type: ' + data.type);
+                    }
+                };
+                
+                worker.onerror = function(e) {
+                    log('❌ Worker error: ' + (e.message || 'Unknown error'));
+                    log('Error details: line ' + e.lineno + ', file: ' + e.filename);
+                    worker.terminate();
+                };
+                
+                worker.postMessage({ type: 'GENERATE_FILES', enableArtificialDelay: false });
+                log('File generation started...');
+                
+            } catch (e) {
+                log('❌ Failed to start generation: ' + e.message);
+            }
+        }
+        
+        function countItems(node) {
+            if (!node) return 0;
+            var count = 1;
+            if (node.children && node.children.length) {
+                for (var i = 0; i < node.children.length; i++) {
+                    count += countItems(node.children[i][1]);
+                }
+            }
+            return count;
+        }
+        
+        log('Page loaded - ready for testing');
+    </script>
+</body>
+</html>
